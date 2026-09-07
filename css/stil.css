@@ -48,6 +48,10 @@
 
 * { box-sizing: border-box; }
 
+/* Ohne das gewinnt jede eigene display-Regel gegen das eingebaute
+   Verstecken, und ein hidden-Element bleibt sichtbar. */
+[hidden] { display: none !important; }
+
 html { -webkit-text-size-adjust: 100%; }
 
 body {

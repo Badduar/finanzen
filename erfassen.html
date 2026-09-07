@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Erfassen – Finanzen</title>
+  <meta name="theme-color" content="#1e6b70">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/symbol.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/stil.css">
+</head>
+<body>
+
+<div class="seite">
+
+  <header class="kopfzeile">
+    <h1 id="ueberschrift">Erfassen</h1>
+    <button class="knopf knopf--still" id="zurueck" type="button">Zurück</button>
+  </header>
+
+  <p class="meldung meldung--fehler" id="fehler" role="alert" hidden></p>
+
+  <form id="form">
+    <!-- Art der Buchung -->
+    <div class="artwahl" role="radiogroup" aria-label="Art der Buchung">
+      <input type="radio" name="art" id="art-ausgabe" value="ausgabe" checked>
+      <label for="art-ausgabe">Ausgabe</label>
+      <input type="radio" name="art" id="art-einnahme" value="einnahme">
+      <label for="art-einnahme">Einnahme</label>
+      <input type="radio" name="art" id="art-umbuchung" value="umbuchung">
+      <label for="art-umbuchung">Umbuchung</label>
+    </div>
+
+    <!-- Betrag gross und zuerst: das ist das Erste, was man weiss. -->
+    <div class="betragfeld">
+      <label for="betrag">Betrag</label>
+      <div class="betragfeld__zeile">
+        <input type="text" id="betrag" name="betrag" inputmode="decimal"
+               placeholder="0,00" autocomplete="off" required>
+        <span aria-hidden="true">€</span>
+      </div>
+    </div>
+
+    <div class="karte">
+      <label class="feld">
+        <span>Datum</span>
+        <input type="date" name="datum" required>
+      </label>
+
+      <label class="feld">
+        <span id="konto-beschriftung">Konto</span>
+        <select name="konto_id" required></select>
+      </label>
+
+      <label class="feld" id="feld-zielkonto" hidden>
+        <span>Auf welches Konto</span>
+        <select name="ziel_konto_id"></select>
+      </label>
+
+      <label class="feld" id="feld-kategorie">
+        <span>Kategorie</span>
+        <select name="kategorie_id"></select>
+      </label>
+
+      <label class="feld" id="feld-wer">
+        <span id="wer-beschriftung">Empfänger</span>
+        <input type="text" name="wer" maxlength="120" list="empfaenger"
+               autocomplete="off" placeholder="z. B. Edeka">
+        <datalist id="empfaenger"></datalist>
+      </label>
+
+      <label class="feld">
+        <span>Notiz</span>
+        <input type="text" name="notiz" maxlength="1000" autocomplete="off"
+               placeholder="optional">
+      </label>
+    </div>
+
+    <p class="hinweis-serie" id="hinweis-serie" hidden></p>
+
+    <div class="knopfreihe">
+      <button class="knopf knopf--haupt knopf--breit" type="submit" id="speichern">Speichern</button>
+    </div>
+    <p class="knopfreihe" id="loeschzeile" hidden>
+      <button class="knopf knopf--breit" type="button" id="papierkorb">In den Papierkorb</button>
+    </p>
+  </form>
+
+</div>
+
+<style>
+  .artwahl { display: flex; gap: 4px; padding: 4px; margin: 4px 0 18px;
+    background: var(--flaeche-2); border-radius: 999px; }
+  .artwahl input { position: absolute; opacity: 0; pointer-events: none; }
+  .artwahl label { flex: 1; text-align: center; cursor: pointer;
+    padding: 9px 6px; border-radius: 999px; font-weight: 500;
+    color: var(--gedaempft); font-size: 15px; }
+  .artwahl input:checked + label { background: var(--flaeche); color: var(--tinte);
+    box-shadow: var(--schatten); }
+  .artwahl input:focus-visible + label { outline: 2px solid var(--petrol); outline-offset: 2px; }
+
+  .betragfeld { margin-bottom: 16px; }
+  .betragfeld > label { display: block; font-size: 13px; font-weight: 500;
+    color: var(--gedaempft); margin-bottom: 5px; }
+  .betragfeld__zeile { display: flex; align-items: baseline; gap: 8px;
+    background: var(--flaeche); border: 1px solid var(--linie);
+    border-radius: var(--radius); padding: 8px 16px; box-shadow: var(--schatten); }
+  .betragfeld__zeile:focus-within { outline: 2px solid var(--petrol); outline-offset: -1px; }
+  .betragfeld input { font-size: 34px; font-weight: 600; letter-spacing: -.02em;
+    border: 0; background: none; padding: 6px 0; min-height: 0;
+    font-variant-numeric: tabular-nums; }
+  .betragfeld input:focus { outline: none; }
+  .betragfeld span { font-size: 24px; color: var(--gedaempft); }
+
+  .knopfreihe { margin-top: 16px; }
+  #papierkorb { color: var(--soll); }
+  .hinweis-serie { margin: 14px 0 0; padding: 11px 13px; border-radius: 9px;
+    font-size: 14.5px; color: var(--gedaempft); background: var(--flaeche-2); }
+</style>
+
+<script type="module">
+  import { verlangeAnmeldung } from "./js/auth.js";
+  import { navigationZeichnen } from "./js/navigation.js";
+  import {
+    konten, kategorien, alsBaum, empfaengerVorschlaege,
+    buchungAnlegen, buchungAendern, buchungLaden, buchungInPapierkorb, serien,
+  } from "./js/daten.js";
+  import {
+    betragFuerFeld, betragAusFeld, heuteAlsText, tagKurz, setzeText,
+  } from "./js/darstellung.js";
+
+  if (!await verlangeAnmeldung()) throw new Error("nicht angemeldet");
+  navigationZeichnen("erfassen.html");
+
+  const form = document.getElementById("form");
+  const fehler = document.getElementById("fehler");
+  const felder = form.elements;
+
+  function zeigeFehler(text) {
+    if (!text) { fehler.hidden = true; return; }
+    fehler.textContent = text;
+    fehler.hidden = false;
+    fehler.scrollIntoView({ block: "nearest" });
+  }
+
+  // Beim Bearbeiten steht die Kennung in der Adresse.
+  const bearbeiteId = new URLSearchParams(location.search).get("id");
+
+  document.getElementById("zurueck").addEventListener("click", () => {
+    if (history.length > 1) history.back();
+    else location.href = "start.html";
+  });
+
+  // ----- Auswahllisten fuellen -----
+
+  const [kontoListe, katListe, vorschlaege] = await Promise.all([
+    konten(), kategorien(), empfaengerVorschlaege(),
+  ]);
+
+  if (!kontoListe.length) {
+    zeigeFehler("Es gibt noch kein Konto. Lege zuerst eines unter Konten an.");
+  }
+
+  function kontenEintragen(auswahl) {
+    auswahl.textContent = "";
+    for (const k of kontoListe) {
+      const option = document.createElement("option");
+      option.value = k.id;
+      option.textContent = k.name;
+      auswahl.appendChild(option);
+    }
+  }
+  kontenEintragen(felder.konto_id);
+  kontenEintragen(felder.ziel_konto_id);
+
+  // Kategorien mit Gruppen: die Hauptkategorie steht selbst zur Wahl,
+  // damit man nicht zwingend eine Unterkategorie treffen muss.
+  function kategorienEintragen(art) {
+    const auswahl = felder.kategorie_id;
+    const vorher = auswahl.value;
+    auswahl.textContent = "";
+
+    const leer = document.createElement("option");
+    leer.value = "";
+    leer.textContent = "– ohne Kategorie –";
+    auswahl.appendChild(leer);
+
+    for (const haupt of alsBaum(katListe.filter((k) => k.art === art))) {
+      const gruppe = document.createElement("optgroup");
+      gruppe.label = haupt.name;
+
+      const selbst = document.createElement("option");
+      selbst.value = haupt.id;
+      selbst.textContent = haupt.name + " (allgemein)";
+      gruppe.appendChild(selbst);
+
+      for (const kind of haupt.kinder) {
+        const option = document.createElement("option");
+        option.value = kind.id;
+        option.textContent = kind.name;
+        gruppe.appendChild(option);
+      }
+      auswahl.appendChild(gruppe);
+    }
+    if (vorher) auswahl.value = vorher;
+  }
+
+  const datenliste = document.getElementById("empfaenger");
+  for (const wert of vorschlaege) {
+    const option = document.createElement("option");
+    option.value = wert;
+    datenliste.appendChild(option);
+  }
+
+  // ----- Auf die Art der Buchung reagieren -----
+
+  function artGewechselt() {
+    const art = form.querySelector("input[name=art]:checked").value;
+    const umbuchung = art === "umbuchung";
+
+    document.getElementById("feld-zielkonto").hidden = !umbuchung;
+    document.getElementById("feld-kategorie").hidden = umbuchung;
+    document.getElementById("feld-wer").hidden = umbuchung;
+    felder.ziel_konto_id.disabled = !umbuchung;
+
+    setzeText(document.getElementById("konto-beschriftung"),
+      umbuchung ? "Von welchem Konto" : "Konto");
+    setzeText(document.getElementById("wer-beschriftung"),
+      art === "einnahme" ? "Von wem" : "Empfänger");
+    felder.wer.placeholder = art === "einnahme" ? "z. B. Arbeitgeber" : "z. B. Edeka";
+
+    if (!umbuchung) kategorienEintragen(art);
+  }
+  for (const feld of form.querySelectorAll("input[name=art]")) {
+    feld.addEventListener("change", artGewechselt);
+  }
+
+  // ----- Vorbelegung -----
+
+  const LETZTES_KONTO = "finanzen.letztesKonto";
+
+  if (bearbeiteId) {
+    const b = await buchungLaden(bearbeiteId);
+    if (!b) {
+      zeigeFehler("Diese Buchung gibt es nicht mehr.");
+    } else {
+      setzeText(document.getElementById("ueberschrift"), "Buchung ändern");
+      document.getElementById("speichern").textContent = "Änderung speichern";
+      document.getElementById("loeschzeile").hidden = false;
+
+      form.querySelector(`input[name=art][value="${b.art}"]`).checked = true;
+      artGewechselt();
+
+      felder.betrag.value = betragFuerFeld(b.betrag);
+      felder.datum.value = b.datum;
+      felder.konto_id.value = b.konto_id;
+      if (b.ziel_konto_id) felder.ziel_konto_id.value = b.ziel_konto_id;
+      if (b.kategorie_id) felder.kategorie_id.value = b.kategorie_id;
+      felder.wer.value = b.wer ?? "";
+      felder.notiz.value = b.notiz ?? "";
+
+      // Wenn die Buchung zu einer Serie gehoert, gehoert das gesagt:
+      // sonst wundert man sich, warum sie in den Fixkosten auftaucht.
+      if (b.serie_id) {
+        const alle = await serien();
+        const serie = alle.find((s) => s.id === b.serie_id);
+        const hinweis = document.getElementById("hinweis-serie");
+        setzeText(hinweis,
+          `Gehört zur Fixkosten-Serie „${serie?.name ?? "unbekannt"}“, `
+          + `fällig am ${tagKurz(b.serie_datum)}. Änderungen hier gelten nur `
+          + `für diese eine Buchung, nicht für die Serie.`);
+        hinweis.hidden = false;
+      }
+    }
+  } else {
+    artGewechselt();
+    felder.datum.value = heuteAlsText();
+    // Das zuletzt benutzte Konto vorbelegen - meist ist es dasselbe.
+    const gemerkt = localStorage.getItem(LETZTES_KONTO);
+    if (gemerkt && kontoListe.some((k) => k.id === gemerkt)) {
+      felder.konto_id.value = gemerkt;
+    }
+    felder.betrag.focus();
+  }
+
+  // ----- Speichern -----
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    zeigeFehler(null);
+
+    const art = form.querySelector("input[name=art]:checked").value;
+    const betrag = betragAusFeld(felder.betrag.value);
+
+    if (betrag === null || betrag <= 0) {
+      zeigeFehler("Bitte einen Betrag größer als null eintragen. Beispiel: 12,90");
+      felder.betrag.focus();
+      return;
+    }
+    if (art === "umbuchung" && felder.konto_id.value === felder.ziel_konto_id.value) {
+      zeigeFehler("Bei einer Umbuchung müssen es zwei verschiedene Konten sein.");
+      return;
+    }
+
+    const buchung = {
+      datum: felder.datum.value,
+      betrag,
+      art,
+      konto_id: felder.konto_id.value,
+      ziel_konto_id: art === "umbuchung" ? felder.ziel_konto_id.value : null,
+      kategorie_id: art === "umbuchung" ? null : (felder.kategorie_id.value || null),
+      wer: art === "umbuchung" ? null : (felder.wer.value.trim() || null),
+      notiz: felder.notiz.value.trim() || null,
+    };
+
+    const knopf = document.getElementById("speichern");
+    knopf.disabled = true;
+    knopf.textContent = "Wird gespeichert …";
+
+    try {
+      if (bearbeiteId) {
+        await buchungAendern(bearbeiteId, buchung);
+        if (history.length > 1) history.back(); else location.href = "buchungen.html";
+      } else {
+        await buchungAnlegen(buchung);
+        localStorage.setItem(LETZTES_KONTO, buchung.konto_id);
+        location.href = "start.html";
+      }
+    } catch (ex) {
+      zeigeFehler("Das Speichern hat nicht geklappt: " + (ex.message ?? ex));
+      knopf.disabled = false;
+      knopf.textContent = bearbeiteId ? "Änderung speichern" : "Speichern";
+    }
+  });
+
+  document.getElementById("papierkorb").addEventListener("click", async () => {
+    if (!confirm("Diese Buchung in den Papierkorb legen?")) return;
+    try {
+      await buchungInPapierkorb(bearbeiteId);
+      location.href = "buchungen.html";
+    } catch (ex) {
+      zeigeFehler("Das hat nicht geklappt: " + (ex.message ?? ex));
+    }
+  });
+</script>
+
+</body>
+</html>

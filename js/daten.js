@@ -90,6 +90,32 @@ export async function buchungen({
   return data ?? [];
 }
 
+export async function buchungLaden(id) {
+  const { data, error } = await db.from("buchung")
+    .select(BUCHUNG_FELDER).eq("id", id).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+// Wer zuletzt Empfaenger oder Zahler war - als Vorschlagsliste beim
+// Erfassen. Spart Tippen bei den immer gleichen Laeden.
+export async function empfaengerVorschlaege(grenze = 300) {
+  const { data, error } = await db.from("buchung")
+    .select("wer")
+    .is("geloescht_am", null)
+    .not("wer", "is", null)
+    .order("datum", { ascending: false })
+    .limit(grenze);
+  if (error) throw error;
+
+  const gesehen = new Set();
+  for (const zeile of data ?? []) {
+    const wert = (zeile.wer ?? "").trim();
+    if (wert) gesehen.add(wert);
+  }
+  return [...gesehen].sort((a, b) => a.localeCompare(b, "de"));
+}
+
 export async function buchungAnlegen(buchung) {
   const { data: sitzung } = await db.auth.getSession();
   const { data, error } = await db.from("buchung")
