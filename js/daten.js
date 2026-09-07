@@ -70,19 +70,23 @@ const BUCHUNG_FELDER = `
 
 export async function buchungen({
   von = null, bis = null, kontoId = null, kategorieId = null,
-  suche = null, grenze = 100, versatz = 0,
+  suche = null, grenze = 100, versatz = 0, ausPapierkorb = false,
 } = {}) {
   let abfrage = db.from("buchung")
-    .select(BUCHUNG_FELDER)
-    .is("geloescht_am", null)
+    .select(BUCHUNG_FELDER + ", geloescht_am")
     .order("datum", { ascending: false })
     .order("erstellt_am", { ascending: false })
     .range(versatz, versatz + grenze - 1);
 
+  abfrage = ausPapierkorb
+    ? abfrage.not("geloescht_am", "is", null)
+    : abfrage.is("geloescht_am", null);
+
   if (von) abfrage = abfrage.gte("datum", von);
   if (bis) abfrage = abfrage.lte("datum", bis);
   if (kontoId) abfrage = abfrage.or(`konto_id.eq.${kontoId},ziel_konto_id.eq.${kontoId}`);
-  if (kategorieId) abfrage = abfrage.eq("kategorie_id", kategorieId);
+  if (Array.isArray(kategorieId)) abfrage = abfrage.in("kategorie_id", kategorieId);
+  else if (kategorieId) abfrage = abfrage.eq("kategorie_id", kategorieId);
   if (suche) abfrage = abfrage.or(`wer.ilike.%${suche}%,notiz.ilike.%${suche}%`);
 
   const { data, error } = await abfrage;

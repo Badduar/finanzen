@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Buchungen – Finanzen</title>
+  <meta name="theme-color" content="#1e6b70">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/symbol.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/stil.css">
+</head>
+<body>
+
+<div class="seite">
+
+  <header class="kopfzeile">
+    <h1 id="ueberschrift">Buchungen</h1>
+    <button class="knopf knopf--still" id="papierkorb-um" type="button">Papierkorb</button>
+  </header>
+
+  <p class="meldung meldung--fehler" id="fehler" role="alert" hidden></p>
+
+  <!-- Zeitraum -->
+  <div class="monatswahl" id="monatswahl">
+    <button class="pfeil" id="monat-zurueck" type="button" aria-label="Vorheriger Monat">‹</button>
+    <input type="month" id="monat" aria-label="Monat">
+    <button class="pfeil" id="monat-vor" type="button" aria-label="Nächster Monat">›</button>
+  </div>
+
+  <div class="filter">
+    <label class="feld">
+      <span>Konto</span>
+      <select id="filter-konto"><option value="">Alle Konten</option></select>
+    </label>
+    <label class="feld">
+      <span>Kategorie</span>
+      <select id="filter-kategorie"><option value="">Alle Kategorien</option></select>
+    </label>
+  </div>
+  <label class="feld">
+    <span>Suche</span>
+    <input type="text" id="filter-suche" placeholder="Empfänger oder Notiz" autocomplete="off">
+  </label>
+
+  <p class="zusammenfassung" id="zusammenfassung"></p>
+
+  <div id="gruppen"></div>
+
+  <p class="leer" id="hinweis" hidden></p>
+
+</div>
+
+<style>
+  .monatswahl { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .monatswahl input { flex: 1; text-align: center; }
+  .pfeil { flex: none; width: 44px; min-height: 44px; font-size: 20px; line-height: 1;
+    border: 1px solid var(--linie); border-radius: 9px; background: var(--flaeche);
+    color: var(--tinte); cursor: pointer; }
+  .pfeil:hover { border-color: var(--petrol); color: var(--petrol); }
+
+  .filter { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .filter .feld { margin-bottom: 14px; }
+
+  .zusammenfassung { margin: 2px 0 14px; font-size: 14.5px; color: var(--gedaempft);
+    font-variant-numeric: tabular-nums; }
+
+  .tag { margin-top: 16px; }
+  .tag__kopf { display: flex; align-items: baseline; gap: 10px; margin: 0 2px 7px; }
+  .tag__datum { font-size: 13px; font-weight: 600; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--gedaempft); }
+  .tag__summe { margin-left: auto; font-size: 13px; color: var(--gedaempft);
+    font-variant-numeric: tabular-nums; }
+
+  .zurueckholen { font: inherit; font-size: 14px; color: var(--petrol);
+    background: none; border: 1px solid var(--linie); border-radius: 999px;
+    padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+</style>
+
+<script type="module">
+  import { verlangeAnmeldung } from "./js/auth.js";
+  import { navigationZeichnen } from "./js/navigation.js";
+  import {
+    buchungen, konten, kategorien, alsBaum, buchungZurueckholen,
+  } from "./js/daten.js";
+  import {
+    euro, euroMitZeichen, tagLang, heuteAlsText, monatsGrenzen, setzeText,
+  } from "./js/darstellung.js";
+
+  if (!await verlangeAnmeldung()) throw new Error("nicht angemeldet");
+  navigationZeichnen("buchungen.html");
+
+  const fehler = document.getElementById("fehler");
+  function zeigeFehler(text) {
+    if (!text) { fehler.hidden = true; return; }
+    fehler.textContent = text;
+    fehler.hidden = false;
+  }
+
+  const parameter = new URLSearchParams(location.search);
+  let imPapierkorb = parameter.get("papierkorb") === "1";
+
+  const [kontoListe, katListe] = await Promise.all([
+    konten({ mitArchivierten: true }), kategorien({ nurAktive: false }),
+  ]);
+  const kontoName = new Map(kontoListe.map((k) => [k.id, k.name]));
+  const katName = new Map(katListe.map((k) => [k.id, k.name]));
+  const baum = alsBaum(katListe);
+
+  // ----- Filter aufbauen -----
+
+  const feldKonto = document.getElementById("filter-konto");
+  for (const k of kontoListe) {
+    const option = document.createElement("option");
+    option.value = k.id;
+    option.textContent = k.name;
+    feldKonto.appendChild(option);
+  }
+  if (parameter.get("konto")) feldKonto.value = parameter.get("konto");
+
+  // In der Auswahl steht die Hauptkategorie fuer sich und ihre
+  // Unterkategorien; wer die Hauptkategorie waehlt, sieht alles darin.
+  const feldKategorie = document.getElementById("filter-kategorie");
+  for (const haupt of baum) {
+    const gruppe = document.createElement("optgroup");
+    gruppe.label = haupt.name;
+    const alle = document.createElement("option");
+    alle.value = "haupt:" + haupt.id;
+    alle.textContent = haupt.name + " (alles)";
+    gruppe.appendChild(alle);
+    for (const kind of haupt.kinder) {
+      const option = document.createElement("option");
+      option.value = kind.id;
+      option.textContent = kind.name;
+      gruppe.appendChild(option);
+    }
+    feldKategorie.appendChild(gruppe);
+  }
+
+  const feldMonat = document.getElementById("monat");
+  feldMonat.value = heuteAlsText().slice(0, 7);
+
+  const feldSuche = document.getElementById("filter-suche");
+
+  function monatVerschieben(schritte) {
+    const [jahr, monat] = feldMonat.value.split("-").map(Number);
+    const neu = new Date(jahr, monat - 1 + schritte, 1);
+    feldMonat.value = `${neu.getFullYear()}-${String(neu.getMonth() + 1).padStart(2, "0")}`;
+    laden();
+  }
+  document.getElementById("monat-zurueck")
+    .addEventListener("click", () => monatVerschieben(-1));
+  document.getElementById("monat-vor")
+    .addEventListener("click", () => monatVerschieben(1));
+
+  feldMonat.addEventListener("change", laden);
+  feldKonto.addEventListener("change", laden);
+  feldKategorie.addEventListener("change", laden);
+
+  let sucheLauf = null;
+  feldSuche.addEventListener("input", () => {
+    clearTimeout(sucheLauf);
+    sucheLauf = setTimeout(laden, 300);
+  });
+
+  document.getElementById("papierkorb-um").addEventListener("click", () => {
+    imPapierkorb = !imPapierkorb;
+    papierkorbAnzeigen();
+    laden();
+  });
+
+  function papierkorbAnzeigen() {
+    setzeText(document.getElementById("ueberschrift"),
+      imPapierkorb ? "Papierkorb" : "Buchungen");
+    setzeText(document.getElementById("papierkorb-um"),
+      imPapierkorb ? "Zurück zur Liste" : "Papierkorb");
+    // Im Papierkorb steht alles Geloeschte, unabhaengig vom Monat.
+    document.getElementById("monatswahl").hidden = imPapierkorb;
+  }
+  papierkorbAnzeigen();
+
+  // ----- Laden und zeichnen -----
+
+  async function laden() {
+    zeigeFehler(null);
+    try {
+      const bedingungen = {
+        grenze: 500,
+        ausPapierkorb: imPapierkorb,
+        kontoId: feldKonto.value || null,
+        suche: feldSuche.value.trim() || null,
+      };
+
+      if (!imPapierkorb) {
+        const { von, bis } = monatsGrenzen(feldMonat.value + "-01");
+        bedingungen.von = von;
+        bedingungen.bis = bis;
+      }
+
+      const gewaehlteKategorie = feldKategorie.value;
+      if (gewaehlteKategorie.startsWith("haupt:")) {
+        const hauptId = gewaehlteKategorie.slice(6);
+        const haupt = baum.find((h) => h.id === hauptId);
+        bedingungen.kategorieId = [hauptId, ...(haupt?.kinder ?? []).map((k) => k.id)];
+      } else if (gewaehlteKategorie) {
+        bedingungen.kategorieId = gewaehlteKategorie;
+      }
+
+      const liste = await buchungen(bedingungen);
+      zeichne(liste);
+    } catch (ex) {
+      zeigeFehler("Die Buchungen konnten nicht geladen werden: " + (ex.message ?? ex));
+    }
+  }
+
+  function zeichne(liste) {
+    const ziel = document.getElementById("gruppen");
+    const hinweis = document.getElementById("hinweis");
+    ziel.textContent = "";
+
+    if (!liste.length) {
+      hinweis.hidden = false;
+      setzeText(hinweis, imPapierkorb
+        ? "Der Papierkorb ist leer."
+        : "In diesem Zeitraum gibt es keine Buchungen.");
+      setzeText(document.getElementById("zusammenfassung"), "");
+      return;
+    }
+    hinweis.hidden = liste.length < 500;
+    if (liste.length >= 500) {
+      setzeText(hinweis, "Es werden die neuesten 500 Buchungen gezeigt.");
+    }
+
+    let ausgaben = 0, einnahmen = 0;
+    for (const b of liste) {
+      if (b.art === "ausgabe") ausgaben += Number(b.betrag);
+      if (b.art === "einnahme") einnahmen += Number(b.betrag);
+    }
+    const anzahl = liste.length === 1 ? "1 Buchung" : `${liste.length} Buchungen`;
+    setzeText(document.getElementById("zusammenfassung"),
+      `${anzahl} · Ausgaben ${euro(ausgaben)} · Einnahmen ${euro(einnahmen)}`);
+
+    // Nach Tagen gruppieren: so liest man einen Monat, wie man einen
+    // Kontoauszug liest.
+    const nachTag = new Map();
+    for (const b of liste) {
+      if (!nachTag.has(b.datum)) nachTag.set(b.datum, []);
+      nachTag.get(b.datum).push(b);
+    }
+
+    for (const [datum, eintraege] of nachTag) {
+      const block = document.createElement("section");
+      block.className = "tag";
+
+      const kopf = document.createElement("div");
+      kopf.className = "tag__kopf";
+      const datumText = document.createElement("span");
+      datumText.className = "tag__datum";
+      datumText.textContent = tagLang(datum);
+      const summe = document.createElement("span");
+      summe.className = "tag__summe";
+      const tagesSumme = eintraege.reduce((s, b) =>
+        b.art === "ausgabe" ? s - Number(b.betrag)
+        : b.art === "einnahme" ? s + Number(b.betrag) : s, 0);
+      summe.textContent = tagesSumme === 0 ? "" : euro(tagesSumme);
+      kopf.append(datumText, summe);
+
+      const liste2 = document.createElement("ul");
+      liste2.className = "liste";
+      for (const b of eintraege) liste2.appendChild(zeileBauen(b));
+
+      block.append(kopf, liste2);
+      ziel.appendChild(block);
+    }
+  }
+
+  function zeileBauen(b) {
+    const text = document.createElement("span");
+    text.className = "zeile__text";
+
+    const titel = document.createElement("span");
+    titel.className = "zeile__titel";
+    titel.textContent = b.art === "umbuchung"
+      ? "Umbuchung"
+      : (b.wer || katName.get(b.kategorie_id) || "Ohne Kategorie");
+
+    const unter = document.createElement("span");
+    unter.className = "zeile__unter";
+    const teile = [];
+    if (b.art === "umbuchung") {
+      teile.push(`${kontoName.get(b.konto_id)} → ${kontoName.get(b.ziel_konto_id)}`);
+    } else {
+      teile.push(kontoName.get(b.konto_id) ?? "");
+      if (b.wer && b.kategorie_id) teile.push(katName.get(b.kategorie_id));
+    }
+    if (b.notiz) teile.push(b.notiz);
+    unter.textContent = teile.filter(Boolean).join(" · ");
+
+    text.append(titel, unter);
+
+    const betrag = document.createElement("span");
+    betrag.className = "zeile__betrag zahl";
+    betrag.textContent = euroMitZeichen(b.betrag, b.art);
+    if (b.art === "ausgabe") betrag.classList.add("soll");
+    if (b.art === "einnahme") betrag.classList.add("haben");
+
+    const eintrag = document.createElement("li");
+
+    if (imPapierkorb) {
+      const zeile = document.createElement("div");
+      zeile.className = "zeile";
+      const knopf = document.createElement("button");
+      knopf.type = "button";
+      knopf.className = "zurueckholen";
+      knopf.textContent = "Zurückholen";
+      knopf.addEventListener("click", async () => {
+        try {
+          await buchungZurueckholen(b.id);
+          await laden();
+        } catch (ex) {
+          zeigeFehler("Zurückholen ging nicht: " + (ex.message ?? ex));
+        }
+      });
+      zeile.append(text, betrag, knopf);
+      eintrag.appendChild(zeile);
+    } else {
+      const zeile = document.createElement("a");
+      zeile.className = "zeile";
+      zeile.href = `erfassen.html?id=${b.id}`;
+      zeile.append(text, betrag);
+      eintrag.appendChild(zeile);
+    }
+    return eintrag;
+  }
+
+  await laden();
+</script>
+
+</body>
+</html>
