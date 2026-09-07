@@ -12,11 +12,30 @@ Supabase (Postgres mit Row Level Security).
 
 ```
 index.html              Anmelden und Registrieren
-start.html              Startbildschirm: Salden, fällige Fixkosten
+start.html              Salden, Vorschau aufs Monatsende, fällige Fixkosten
+buchungen.html          Liste mit Filtern, Suche und Papierkorb
+erfassen.html           Ausgabe, Einnahme, Umbuchung – anlegen und ändern
+fixkosten.html          Übersicht der Serien
+serie.html              eine Serie anlegen oder ändern
+auswertung.html         Kuchendiagramme für Ausgaben, Einnahmen, Fixkosten
+konten.html             Konten verwalten, Startsaldo eintragen
+kategorien.html         Kategorien in zwei Ebenen verwalten
+
 css/stil.css            gemeinsames Stylesheet
-js/konfig.js            Supabase-Zugang und feste Einstellungen
+js/konfig.js            Supabase-Zugang, Farben, feste Einstellungen
 js/supabase.js          der gemeinsame Datenbank-Client
 js/auth.js              Anmelden, Registrieren, eigenes Profil
+js/daten.js             alle Datenbankzugriffe an einer Stelle
+js/darstellung.js       Beträge, Datumsangaben, Prozente auf Deutsch
+js/serie.js             Fälligkeiten einer Serie im Browser rechnen
+js/kuchen.js            das Kuchendiagramm als SVG
+js/navigation.js        die Leiste am unteren Rand
+js/pwa.js               meldet den Service Worker an
+
+sw.js                   Service Worker – Versionsnummer beachten!
+manifest.webmanifest    macht die App installierbar
+testserver.py           lokaler Testserver ohne Zwischenspeicher
+
 supabase/migrationen/   nummerierte SQL-Migrationen
 supabase/funktionen/    Edge Functions (TypeScript)
 ```
@@ -45,6 +64,38 @@ Auswertung bleibt sie außen vor, sonst zählte derselbe Euro zweimal.
 
 **Gelöschtes wandert in den Papierkorb** (`geloescht_am`) statt sofort zu
 verschwinden. Bei mehreren Personen soll nichts spurlos weg sein.
+
+**Die Fälligkeitsrechnung steht zweimal da** – in `intern.faelligkeiten()`
+für den Betrieb und in `js/serie.js` für die Vorschau im Formular, die schon
+greifen muss, bevor die Serie gespeichert ist. Wer die eine ändert, muss die
+andere mitziehen. Beide sind gegeneinander geprüft, auch für den 29. Februar
+und den 31. in kurzen Monaten.
+
+## Entwickeln
+
+Lokal starten mit `python testserver.py`. Der eingebaute `http.server` lässt
+Browser die JS-Module zwischenspeichern; Änderungen bleiben dann scheinbar
+wirkungslos und man sucht Fehler, die längst behoben sind. `testserver.py`
+schickt deshalb `no-store` mit. Der Service Worker meldet sich auf
+`localhost` bewusst nicht an – aus demselben Grund.
+
+**Nach jeder Änderung an einer Datei aus `GERUEST` in `sw.js` die
+Versionsnummer dort hochzählen.** Sonst behalten Geräte, auf denen die App
+schon installiert ist, den alten Stand.
+
+### Testkonten
+
+Testkonten bekommen Adressen auf `example.com` – laut RFC 2606 für Tests
+reserviert, ein echtes Profil kann so eine Adresse nicht haben. Aufgeräumt
+wird ausschließlich gezielt:
+
+```sql
+delete from auth.users where email like '%@example.com';
+```
+
+Niemals `delete from auth.users` ohne Bedingung: das trifft alle Konten, und
+daran hängt per Kaskade alles – Profile, Buchungen, Serien, angemeldete
+Geräte.
 
 ## Datenbank neu aufsetzen
 

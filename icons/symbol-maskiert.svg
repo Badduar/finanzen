@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Finanzen">
+  <!-- Maskierbares Symbol: Android schneidet daraus einen Kreis, ein
+       Quadrat oder einen Tropfen. Wichtiges bleibt deshalb innerhalb
+       der mittleren 80 Prozent - hier innerhalb r = 205. -->
+  <rect width="512" height="512" fill="#1e6b70"/>
+  <circle cx="256" cy="256" r="104" fill="none" stroke="#ffffff" stroke-width="46" opacity="0.28"/>
+  <circle cx="256" cy="256" r="104" fill="none" stroke="#ffffff" stroke-width="46"
+          stroke-dasharray="270 384" transform="rotate(-90 256 256)"/>
+  <circle cx="256" cy="256" r="104" fill="none" stroke="#eb6834" stroke-width="46"
+          stroke-dasharray="98 556" stroke-dashoffset="-280" transform="rotate(-90 256 256)"/>
+</svg>

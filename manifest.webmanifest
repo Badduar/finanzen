@@ -1,0 +1,26 @@
+{
+  "name": "Finanzen",
+  "short_name": "Finanzen",
+  "description": "Gemeinsame Haushaltskasse mit Fixkosten, Konten und Auswertung",
+  "lang": "de",
+  "start_url": "./start.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#f1f3f2",
+  "theme_color": "#1e6b70",
+  "icons": [
+    {
+      "src": "icons/symbol.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icons/symbol-maskiert.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}

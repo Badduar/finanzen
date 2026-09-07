@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Kategorien – Finanzen</title>
+  <meta name="theme-color" content="#1e6b70">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/symbol.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/stil.css">
+</head>
+<body>
+
+<div class="seite">
+
+  <header class="kopfzeile">
+    <h1>Kategorien</h1>
+    <button class="knopf knopf--still" id="neu-haupt" type="button">Neu</button>
+  </header>
+
+  <p class="meldung meldung--fehler" id="fehler" role="alert" hidden></p>
+  <p class="meldung meldung--ok" id="erfolg" role="status" hidden></p>
+
+  <div class="artwahl" role="radiogroup" aria-label="Art">
+    <input type="radio" name="sicht" id="sicht-ausgabe" value="ausgabe" checked>
+    <label for="sicht-ausgabe">Ausgaben</label>
+    <input type="radio" name="sicht" id="sicht-einnahme" value="einnahme">
+    <label for="sicht-einnahme">Einnahmen</label>
+  </div>
+
+  <div id="baum"></div>
+
+  <p class="hinweis">
+    Ausgeblendete Kategorien tauchen beim Erfassen nicht mehr auf, bleiben aber
+    an alten Buchungen hängen — die Auswertung vergangener Monate ändert sich
+    dadurch nicht.
+  </p>
+
+  <p class="hinweis">
+    <a class="verweis" href="konten.html">Konten verwalten</a>
+  </p>
+
+</div>
+
+<dialog id="dialog">
+  <form method="dialog" id="form">
+    <h2 id="dialog-titel">Kategorie</h2>
+    <p class="dialog__unter" id="dialog-unter"></p>
+
+    <label class="feld">
+      <span>Name</span>
+      <input type="text" name="name" maxlength="60" required>
+    </label>
+
+    <label class="schalterzeile">
+      <input type="checkbox" name="aktiv" checked>
+      <span>
+        <strong>Wird beim Erfassen angeboten</strong>
+        <small>Ohne Haken bleibt sie an alten Buchungen, verschwindet aber
+               aus den Auswahllisten.</small>
+      </span>
+    </label>
+
+    <p class="meldung meldung--fehler" id="dialog-fehler" role="alert" hidden></p>
+
+    <div class="dialog__knoepfe">
+      <button class="knopf" value="abbrechen" type="submit">Abbrechen</button>
+      <button class="knopf knopf--haupt" value="speichern" type="submit">Speichern</button>
+    </div>
+    <p style="text-align:center;margin:12px 0 0">
+      <button class="knopf knopf--still" id="loeschen" type="button" hidden>Löschen</button>
+    </p>
+  </form>
+</dialog>
+
+<style>
+  .artwahl { display: flex; gap: 4px; padding: 4px; margin: 4px 0 16px;
+    background: var(--flaeche-2); border-radius: 999px; }
+  .artwahl input { position: absolute; opacity: 0; pointer-events: none; }
+  .artwahl label { flex: 1; text-align: center; cursor: pointer;
+    padding: 9px 6px; border-radius: 999px; font-weight: 500;
+    color: var(--gedaempft); font-size: 15px; }
+  .artwahl input:checked + label { background: var(--flaeche); color: var(--tinte);
+    box-shadow: var(--schatten); }
+
+  .gruppe { margin-bottom: 12px; background: var(--flaeche);
+    border: 1px solid var(--linie); border-radius: var(--radius);
+    box-shadow: var(--schatten); overflow: hidden; }
+  .gruppe__kopf { display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+    border-bottom: 1px solid var(--linie); }
+  .gruppe__name { font: inherit; font-weight: 600; background: none; border: 0;
+    padding: 0; color: inherit; cursor: pointer; text-align: left; flex: 1; }
+  .gruppe__neu { font: inherit; font-size: 14px; color: var(--petrol);
+    background: none; border: 0; cursor: pointer; padding: 6px; }
+
+  .kinder { display: flex; flex-wrap: wrap; gap: 7px; padding: 12px 14px; }
+  .kind { font: inherit; font-size: 14.5px; cursor: pointer;
+    padding: 6px 12px; border-radius: 999px; border: 1px solid var(--linie);
+    background: transparent; color: var(--tinte); }
+  .kind:hover { border-color: var(--petrol); }
+  .kind.still { color: var(--gedaempft); border-style: dashed; }
+  .gruppe.still .gruppe__name { color: var(--gedaempft); font-style: italic; }
+
+  .schalterzeile { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+  .schalterzeile input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
+  .schalterzeile strong { display: block; font-weight: 500; }
+  .schalterzeile small { display: block; color: var(--gedaempft); font-size: 13.5px;
+    line-height: 1.4; margin-top: 2px; }
+
+  dialog { border: 1px solid var(--linie); border-radius: var(--radius);
+    background: var(--flaeche); color: var(--tinte); padding: 20px;
+    width: min(440px, calc(100vw - 32px)); box-shadow: var(--schatten-2); }
+  dialog::backdrop { background: rgba(0, 0, 0, .45); }
+  .dialog__unter { margin: 4px 0 16px; color: var(--gedaempft); font-size: 14.5px; }
+  .dialog__knoepfe { display: flex; gap: 10px; }
+  .dialog__knoepfe .knopf { flex: 1; }
+  #loeschen { color: var(--soll); }
+
+  .hinweis { margin: 18px 2px 0; font-size: 14.5px; color: var(--gedaempft);
+    max-width: 60ch; }
+</style>
+
+<script type="module">
+  import "./js/pwa.js";
+  import { verlangeAnmeldung } from "./js/auth.js";
+  import { navigationZeichnen } from "./js/navigation.js";
+  import {
+    kategorien, alsBaum, kategorieAnlegen, kategorieAendern,
+    kategorieLoeschen, kategorieHatBuchungen,
+  } from "./js/daten.js";
+  import { setzeText } from "./js/darstellung.js";
+
+  if (!await verlangeAnmeldung()) throw new Error("nicht angemeldet");
+  navigationZeichnen("start.html");
+
+  const dialog = document.getElementById("dialog");
+  const form = document.getElementById("form");
+  let bearbeitet = null;   // vorhandene Kategorie oder null
+  let neuUnter = null;     // eltern_id, wenn eine Unterkategorie entsteht
+
+  function melde(element, text) {
+    document.getElementById("fehler").hidden = true;
+    document.getElementById("erfolg").hidden = true;
+    if (!element) return;
+    const ziel = document.getElementById(element);
+    ziel.textContent = text;
+    ziel.hidden = false;
+  }
+
+  function art() {
+    return document.querySelector("input[name=sicht]:checked").value;
+  }
+
+  async function laden() {
+    try {
+      const liste = await kategorien({ art: art(), nurAktive: false });
+      const baum = alsBaum(liste);
+      const ziel = document.getElementById("baum");
+      ziel.textContent = "";
+
+      for (const haupt of baum) {
+        const block = document.createElement("section");
+        block.className = haupt.aktiv ? "gruppe" : "gruppe still";
+
+        const kopf = document.createElement("div");
+        kopf.className = "gruppe__kopf";
+
+        const punkt = document.createElement("span");
+        punkt.className = "punkt";
+        punkt.style.background = haupt.farbe;
+
+        const name = document.createElement("button");
+        name.type = "button";
+        name.className = "gruppe__name";
+        name.textContent = haupt.name + (haupt.aktiv ? "" : " (ausgeblendet)");
+        name.addEventListener("click", () => oeffnen(haupt, null));
+
+        const neu = document.createElement("button");
+        neu.type = "button";
+        neu.className = "gruppe__neu";
+        neu.textContent = "+ Unterkategorie";
+        neu.addEventListener("click", () => oeffnen(null, haupt));
+
+        kopf.append(punkt, name, neu);
+        block.appendChild(kopf);
+
+        if (haupt.kinder.length) {
+          const kinder = document.createElement("div");
+          kinder.className = "kinder";
+          for (const kind of haupt.kinder) {
+            const knopf = document.createElement("button");
+            knopf.type = "button";
+            knopf.className = kind.aktiv ? "kind" : "kind still";
+            knopf.textContent = kind.name;
+            knopf.addEventListener("click", () => oeffnen(kind, haupt));
+            kinder.appendChild(knopf);
+          }
+          block.appendChild(kinder);
+        }
+        ziel.appendChild(block);
+      }
+
+      if (!baum.length) {
+        const leer = document.createElement("p");
+        leer.className = "leer";
+        leer.textContent = "Noch keine Kategorien angelegt.";
+        ziel.appendChild(leer);
+      }
+    } catch (ex) {
+      melde("fehler", "Die Kategorien konnten nicht geladen werden: " + (ex.message ?? ex));
+    }
+  }
+
+  function oeffnen(kategorie, eltern) {
+    bearbeitet = kategorie;
+    neuUnter = kategorie ? null : (eltern?.id ?? null);
+    document.getElementById("dialog-fehler").hidden = true;
+
+    const istUnter = kategorie ? !!kategorie.eltern_id : !!neuUnter;
+    setzeText(document.getElementById("dialog-titel"),
+      kategorie ? "Kategorie ändern" : (istUnter ? "Neue Unterkategorie" : "Neue Hauptkategorie"));
+    setzeText(document.getElementById("dialog-unter"),
+      istUnter ? `Gehört zu „${eltern?.name ?? ""}“` : "Erscheint als eigenes Stück im Kuchendiagramm.");
+
+    form.elements.name.value = kategorie?.name ?? "";
+    form.elements.aktiv.checked = kategorie?.aktiv ?? true;
+    document.getElementById("loeschen").hidden = !kategorie;
+
+    dialog.showModal();
+  }
+
+  document.getElementById("neu-haupt").addEventListener("click", () => oeffnen(null, null));
+  for (const feld of document.querySelectorAll("input[name=sicht]")) {
+    feld.addEventListener("change", laden);
+  }
+
+  dialog.addEventListener("close", async () => {
+    if (dialog.returnValue !== "speichern") return;
+
+    const felder = {
+      name: form.elements.name.value.trim(),
+      aktiv: form.elements.aktiv.checked,
+    };
+
+    try {
+      if (bearbeitet) {
+        await kategorieAendern(bearbeitet.id, felder);
+        melde("erfolg", `„${felder.name}“ gespeichert.`);
+      } else {
+        await kategorieAnlegen({
+          ...felder,
+          art: art(),
+          eltern_id: neuUnter,
+          // Ans Ende sortieren, damit nichts Bestehendes umspringt.
+          sortierung: 999,
+        });
+        melde("erfolg", `„${felder.name}“ angelegt.`);
+      }
+      await laden();
+    } catch (ex) {
+      const doppelt = String(ex.message ?? "").includes("duplicate");
+      melde("fehler", doppelt
+        ? "Diesen Namen gibt es auf dieser Ebene schon."
+        : "Das Speichern hat nicht geklappt: " + (ex.message ?? ex));
+    }
+  });
+
+  document.getElementById("loeschen").addEventListener("click", async () => {
+    const dialogFehler = document.getElementById("dialog-fehler");
+    try {
+      if (await kategorieHatBuchungen(bearbeitet.id)) {
+        dialogFehler.textContent = "Auf diese Kategorie sind Buchungen gebucht. "
+          + "Löschen würde sie rückwirkend ohne Kategorie dastehen lassen — "
+          + "nimm stattdessen den Haken oben heraus, dann verschwindet sie "
+          + "nur aus den Auswahllisten.";
+        dialogFehler.hidden = false;
+        return;
+      }
+      const kinder = bearbeitet.eltern_id ? "" :
+        "\n\nAlle Unterkategorien darin verschwinden mit.";
+      if (!confirm(`„${bearbeitet.name}“ wirklich löschen?${kinder}`)) return;
+      await kategorieLoeschen(bearbeitet.id);
+      dialog.close("geloescht");
+      melde("erfolg", "Kategorie gelöscht.");
+      await laden();
+    } catch (ex) {
+      dialogFehler.textContent = "Das Löschen hat nicht geklappt: " + (ex.message ?? ex);
+      dialogFehler.hidden = false;
+    }
+  });
+
+  await laden();
+</script>
+
+</body>
+</html>

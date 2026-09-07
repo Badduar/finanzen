@@ -30,6 +30,36 @@ export async function kontenMitSaldo() {
   return data ?? [];
 }
 
+export async function kontoAnlegen(konto) {
+  const { data, error } = await db.from("konto").insert(konto).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function kontoAendern(id, felder) {
+  const { data, error } = await db.from("konto")
+    .update(felder).eq("id", id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// Ein Konto mit Buchungen darf nicht verschwinden - sonst haetten die
+// Buchungen kein Konto mehr und der Saldo waere sinnlos. Die Datenbank
+// verhindert das ohnehin (on delete restrict); hier fragen wir vorher,
+// um eine verstaendliche Meldung geben zu koennen.
+export async function kontoHatBuchungen(id) {
+  const { count, error } = await db.from("buchung")
+    .select("id", { count: "exact", head: true })
+    .or(`konto_id.eq.${id},ziel_konto_id.eq.${id}`);
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
+export async function kontoLoeschen(id) {
+  const { error } = await db.from("konto").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function kategorien({ art = null, nurAktive = true } = {}) {
   let abfrage = db.from("kategorie")
     .select("id, name, art, eltern_id, farbe, sortierung, aktiv")
@@ -51,6 +81,36 @@ export function alsBaum(liste) {
     if (k.eltern_id && nachId.has(k.eltern_id)) nachId.get(k.eltern_id).kinder.push(k);
   }
   return haupt;
+}
+
+export async function kategorieAnlegen(kategorie) {
+  const { data, error } = await db.from("kategorie").insert(kategorie).select().single();
+  if (error) throw error;
+  return data;
+}
+
+export async function kategorieAendern(id, felder) {
+  const { data, error } = await db.from("kategorie")
+    .update(felder).eq("id", id).select().single();
+  if (error) throw error;
+  return data;
+}
+
+// Wie beim Konto: erst fragen, dann loeschen. Eine Kategorie mit
+// Buchungen wird besser ausgeblendet als geloescht - sonst stehen alte
+// Buchungen ohne Kategorie da und die Auswertung vergangener Monate
+// aendert sich rueckwirkend.
+export async function kategorieHatBuchungen(id) {
+  const { count, error } = await db.from("buchung")
+    .select("id", { count: "exact", head: true })
+    .eq("kategorie_id", id);
+  if (error) throw error;
+  return (count ?? 0) > 0;
+}
+
+export async function kategorieLoeschen(id) {
+  const { error } = await db.from("kategorie").delete().eq("id", id);
+  if (error) throw error;
 }
 
 export async function profile() {

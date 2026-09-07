@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Konten – Finanzen</title>
+  <meta name="theme-color" content="#1e6b70">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/symbol.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/stil.css">
+</head>
+<body>
+
+<div class="seite">
+
+  <header class="kopfzeile">
+    <h1>Konten</h1>
+    <button class="knopf knopf--still" id="neu" type="button">Neu</button>
+  </header>
+
+  <p class="meldung meldung--fehler" id="fehler" role="alert" hidden></p>
+  <p class="meldung meldung--ok" id="erfolg" role="status" hidden></p>
+
+  <ul class="liste" id="konten"></ul>
+
+  <section class="abschnitt" id="block-archiv" hidden>
+    <div class="abschnitt__kopf"><h2>Archiviert</h2></div>
+    <ul class="liste" id="archiv"></ul>
+  </section>
+
+  <p class="hinweis">
+    Startsaldo und Startdatum sind der Anfangsbestand: ab diesem Tag rechnet die
+    App. Am einfachsten den heutigen Kontostand mit dem heutigen Datum eintragen —
+    dann stimmt der Saldo ab sofort, ohne dass Vergangenes nachgetragen werden muss.
+  </p>
+
+  <p class="hinweis">
+    <a class="verweis" href="kategorien.html">Kategorien verwalten</a>
+  </p>
+
+</div>
+
+<dialog id="dialog">
+  <form method="dialog" id="form">
+    <h2 id="dialog-titel">Konto</h2>
+
+    <label class="feld">
+      <span>Name</span>
+      <input type="text" name="name" maxlength="60" required>
+    </label>
+
+    <label class="feld">
+      <span>Art</span>
+      <select name="art"></select>
+    </label>
+
+    <div class="zweispaltig">
+      <label class="feld">
+        <span>Startsaldo</span>
+        <input type="text" name="startsaldo" inputmode="decimal" placeholder="0,00">
+      </label>
+      <label class="feld">
+        <span>Startdatum</span>
+        <input type="date" name="startdatum" required>
+      </label>
+    </div>
+
+    <div class="feld">
+      <span>Farbe</span>
+      <div class="farbwahl" id="farbwahl"></div>
+    </div>
+
+    <label class="schalterzeile" id="zeile-archiv" hidden>
+      <input type="checkbox" name="archiviert">
+      <span>
+        <strong>Archivieren</strong>
+        <small>Verschwindet aus den Auswahllisten, die Buchungen bleiben erhalten.</small>
+      </span>
+    </label>
+
+    <p class="meldung meldung--fehler" id="dialog-fehler" role="alert" hidden></p>
+
+    <div class="dialog__knoepfe">
+      <button class="knopf" value="abbrechen" type="submit">Abbrechen</button>
+      <button class="knopf knopf--haupt" value="speichern" type="submit">Speichern</button>
+    </div>
+    <p style="text-align:center;margin:12px 0 0">
+      <button class="knopf knopf--still" id="loeschen" type="button" hidden>Konto löschen</button>
+    </p>
+  </form>
+</dialog>
+
+<style>
+  .zweispaltig { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .schalterzeile { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 4px; }
+  .schalterzeile input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
+  .schalterzeile strong { display: block; font-weight: 500; }
+  .schalterzeile small { display: block; color: var(--gedaempft); font-size: 13.5px;
+    line-height: 1.4; margin-top: 2px; }
+
+  dialog { border: 1px solid var(--linie); border-radius: var(--radius);
+    background: var(--flaeche); color: var(--tinte); padding: 20px;
+    width: min(440px, calc(100vw - 32px)); box-shadow: var(--schatten-2); }
+  dialog::backdrop { background: rgba(0, 0, 0, .45); }
+  .dialog__knoepfe { display: flex; gap: 10px; margin-top: 4px; }
+  .dialog__knoepfe .knopf { flex: 1; }
+  #loeschen { color: var(--soll); }
+
+  .hinweis { margin: 18px 2px 0; font-size: 14.5px; color: var(--gedaempft);
+    max-width: 60ch; }
+  .archiviert .zeile__titel { color: var(--gedaempft); }
+</style>
+
+<script type="module">
+  import "./js/pwa.js";
+  import { verlangeAnmeldung } from "./js/auth.js";
+  import { navigationZeichnen } from "./js/navigation.js";
+  import {
+    kontenMitSaldo, konten, kontoAnlegen, kontoAendern,
+    kontoLoeschen, kontoHatBuchungen,
+  } from "./js/daten.js";
+  import {
+    euro, betragFuerFeld, betragAusFeld, heuteAlsText, tagKurzMitJahr, setzeText,
+  } from "./js/darstellung.js";
+  import { KONTOARTEN, FARBPALETTE } from "./js/konfig.js";
+
+  if (!await verlangeAnmeldung()) throw new Error("nicht angemeldet");
+  navigationZeichnen("start.html");
+
+  const dialog = document.getElementById("dialog");
+  const form = document.getElementById("form");
+  const felder = form.elements;
+  let bearbeitet = null;
+
+  function melde(element, text) {
+    document.getElementById("fehler").hidden = true;
+    document.getElementById("erfolg").hidden = true;
+    if (!element) return;
+    const ziel = document.getElementById(element);
+    ziel.textContent = text;
+    ziel.hidden = false;
+  }
+
+  for (const [wert, beschriftung] of KONTOARTEN) {
+    const option = document.createElement("option");
+    option.value = wert;
+    option.textContent = beschriftung;
+    felder.art.appendChild(option);
+  }
+
+  const farbwahl = document.getElementById("farbwahl");
+  FARBPALETTE.forEach((farbe, i) => {
+    const id = `farbe-${i}`;
+    const eingabe = document.createElement("input");
+    eingabe.type = "radio";
+    eingabe.name = "farbe";
+    eingabe.value = farbe;
+    eingabe.id = id;
+    eingabe.checked = i === 0;
+    const beschriftung = document.createElement("label");
+    beschriftung.setAttribute("for", id);
+    beschriftung.style.background = farbe;
+    beschriftung.title = farbe;
+    farbwahl.append(eingabe, beschriftung);
+  });
+
+  const artName = new Map(KONTOARTEN);
+
+  async function laden() {
+    try {
+      const [salden, alle] = await Promise.all([
+        kontenMitSaldo(), konten({ mitArchivierten: true }),
+      ]);
+      const saldoVon = new Map(salden.map((k) => [k.konto_id, k.saldo]));
+
+      const liste = document.getElementById("konten");
+      const archiv = document.getElementById("archiv");
+      liste.textContent = "";
+      archiv.textContent = "";
+
+      for (const k of alle) {
+        const punkt = document.createElement("span");
+        punkt.className = "punkt punkt--gross";
+        punkt.style.background = k.farbe;
+
+        const text = document.createElement("span");
+        text.className = "zeile__text";
+        const titel = document.createElement("span");
+        titel.className = "zeile__titel";
+        titel.textContent = k.name;
+        const unter = document.createElement("span");
+        unter.className = "zeile__unter";
+        unter.textContent = `${artName.get(k.art) ?? k.art} · Start `
+          + `${euro(k.startsaldo)} am ${tagKurzMitJahr(k.startdatum)}`;
+        text.append(titel, unter);
+
+        const betrag = document.createElement("span");
+        betrag.className = "zeile__betrag zahl";
+        if (!k.archiviert) {
+          betrag.textContent = euro(saldoVon.get(k.id) ?? 0);
+          if (Number(saldoVon.get(k.id) ?? 0) < 0) betrag.classList.add("soll");
+        }
+
+        const zeile = document.createElement("button");
+        zeile.type = "button";
+        zeile.className = "zeile";
+        zeile.append(punkt, text, betrag);
+        zeile.addEventListener("click", () => oeffnen(k));
+
+        const eintrag = document.createElement("li");
+        if (k.archiviert) eintrag.className = "archiviert";
+        eintrag.appendChild(zeile);
+        (k.archiviert ? archiv : liste).appendChild(eintrag);
+      }
+
+      document.getElementById("block-archiv").hidden = !archiv.children.length;
+      if (!liste.children.length) {
+        const leer = document.createElement("li");
+        leer.className = "leer";
+        leer.textContent = "Noch kein Konto angelegt.";
+        liste.appendChild(leer);
+      }
+    } catch (ex) {
+      melde("fehler", "Die Konten konnten nicht geladen werden: " + (ex.message ?? ex));
+    }
+  }
+
+  function oeffnen(konto) {
+    bearbeitet = konto;
+    document.getElementById("dialog-fehler").hidden = true;
+    setzeText(document.getElementById("dialog-titel"), konto ? "Konto ändern" : "Neues Konto");
+    document.getElementById("zeile-archiv").hidden = !konto;
+    document.getElementById("loeschen").hidden = !konto;
+
+    felder.name.value = konto?.name ?? "";
+    felder.art.value = konto?.art ?? "giro";
+    felder.startsaldo.value = konto ? betragFuerFeld(konto.startsaldo) : "";
+    felder.startdatum.value = konto?.startdatum ?? heuteAlsText();
+    felder.archiviert.checked = konto?.archiviert ?? false;
+
+    const farbe = konto?.farbe ?? FARBPALETTE[0];
+    const treffer = [...form.querySelectorAll("input[name=farbe]")]
+      .find((f) => f.value.toLowerCase() === String(farbe).toLowerCase());
+    (treffer ?? form.querySelector("input[name=farbe]")).checked = true;
+
+    dialog.showModal();
+  }
+
+  document.getElementById("neu").addEventListener("click", () => oeffnen(null));
+
+  dialog.addEventListener("close", async () => {
+    if (dialog.returnValue !== "speichern") return;
+
+    const startsaldo = betragAusFeld(felder.startsaldo.value);
+    const konto = {
+      name: felder.name.value.trim(),
+      art: felder.art.value,
+      // Ein leeres Feld heisst null Euro, nicht "unbekannt".
+      startsaldo: startsaldo === null ? 0 : startsaldo,
+      startdatum: felder.startdatum.value,
+      farbe: form.querySelector("input[name=farbe]:checked").value,
+      archiviert: bearbeitet ? felder.archiviert.checked : false,
+    };
+
+    try {
+      if (bearbeitet) {
+        await kontoAendern(bearbeitet.id, konto);
+        melde("erfolg", `„${konto.name}“ gespeichert.`);
+      } else {
+        await kontoAnlegen(konto);
+        melde("erfolg", `„${konto.name}“ angelegt.`);
+      }
+      await laden();
+    } catch (ex) {
+      melde("fehler", "Das Speichern hat nicht geklappt: " + (ex.message ?? ex));
+    }
+  });
+
+  document.getElementById("loeschen").addEventListener("click", async () => {
+    const dialogFehler = document.getElementById("dialog-fehler");
+    try {
+      if (await kontoHatBuchungen(bearbeitet.id)) {
+        dialogFehler.textContent = "Auf dieses Konto sind Buchungen gebucht. "
+          + "Es lässt sich nicht löschen, ohne die Buchungen mitzunehmen — "
+          + "setze stattdessen den Haken bei Archivieren.";
+        dialogFehler.hidden = false;
+        return;
+      }
+      if (!confirm(`„${bearbeitet.name}“ wirklich löschen?`)) return;
+      await kontoLoeschen(bearbeitet.id);
+      dialog.close("geloescht");
+      melde("erfolg", "Konto gelöscht.");
+      await laden();
+    } catch (ex) {
+      dialogFehler.textContent = "Das Löschen hat nicht geklappt: " + (ex.message ?? ex);
+      dialogFehler.hidden = false;
+    }
+  });
+
+  await laden();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Finanzen">
+  <rect width="512" height="512" rx="112" fill="#1e6b70"/>
+  <!-- Ring wie im Kuchendiagramm der Auswertung -->
+  <circle cx="256" cy="256" r="128" fill="none" stroke="#ffffff" stroke-width="56" opacity="0.28"/>
+  <circle cx="256" cy="256" r="128" fill="none" stroke="#ffffff" stroke-width="56"
+          stroke-dasharray="332 472" transform="rotate(-90 256 256)"/>
+  <circle cx="256" cy="256" r="128" fill="none" stroke="#eb6834" stroke-width="56"
+          stroke-dasharray="120 684" stroke-dashoffset="-344" transform="rotate(-90 256 256)"/>
+</svg>
