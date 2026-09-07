@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fixkosten – Finanzen</title>
+  <meta name="theme-color" content="#1e6b70">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/symbol.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/stil.css">
+</head>
+<body>
+
+<div class="seite">
+
+  <header class="kopfzeile">
+    <h1>Fixkosten</h1>
+    <a class="knopf knopf--still" href="serie.html">Neu</a>
+  </header>
+
+  <p class="meldung meldung--fehler" id="fehler" role="alert" hidden></p>
+
+  <section class="karte bilanz">
+    <div>
+      <p class="bilanz__beschriftung">Feste Ausgaben je Monat</p>
+      <p class="bilanz__zahl zahl soll" id="summe-ausgaben">–</p>
+    </div>
+    <div>
+      <p class="bilanz__beschriftung">Feste Einnahmen je Monat</p>
+      <p class="bilanz__zahl zahl haben" id="summe-einnahmen">–</p>
+    </div>
+  </section>
+  <p class="hinweis-schnitt">Im Schnitt: eine Jahresrechnung zählt mit einem Zwölftel.</p>
+
+  <section class="abschnitt">
+    <div class="abschnitt__kopf"><h2>Laufend</h2></div>
+    <ul class="liste" id="aktive"></ul>
+  </section>
+
+  <section class="abschnitt" id="block-ruhend" hidden>
+    <div class="abschnitt__kopf"><h2>Stillgelegt</h2></div>
+    <ul class="liste" id="ruhende"></ul>
+  </section>
+
+</div>
+
+<style>
+  .bilanz { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: center; }
+  .bilanz__beschriftung { margin: 0; font-size: 12.5px; color: var(--gedaempft); }
+  .bilanz__zahl { margin: 3px 0 0; font-size: 21px; font-weight: 600; }
+  .hinweis-schnitt { margin: 8px 2px 0; font-size: 13.5px; color: var(--gedaempft); }
+  .ruhend .zeile__titel, .ruhend .zeile__betrag { color: var(--gedaempft); }
+  .zeile__rechts { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; }
+  .zeile__rechts small { font-size: 12.5px; color: var(--gedaempft);
+    font-variant-numeric: tabular-nums; white-space: nowrap; }
+</style>
+
+<script type="module">
+  import { verlangeAnmeldung } from "./js/auth.js";
+  import { navigationZeichnen } from "./js/navigation.js";
+  import { serien, konten, kategorien, offeneFaelligkeiten } from "./js/daten.js";
+  import { euro, euroMitZeichen, tagKurzMitJahr, setzeText } from "./js/darstellung.js";
+  import { monatsbetrag, rhythmusText, naechsteFaelligkeiten } from "./js/serie.js";
+
+  if (!await verlangeAnmeldung()) throw new Error("nicht angemeldet");
+  navigationZeichnen("fixkosten.html");
+
+  const fehler = document.getElementById("fehler");
+  function zeigeFehler(text) {
+    if (!text) { fehler.hidden = true; return; }
+    fehler.textContent = text;
+    fehler.hidden = false;
+  }
+
+  try {
+    const [liste, kontoListe, katListe, offene] = await Promise.all([
+      serien(), konten({ mitArchivierten: true }), kategorien({ nurAktive: false }),
+      offeneFaelligkeiten(),
+    ]);
+    const kontoName = new Map(kontoListe.map((k) => [k.id, k.name]));
+    const katName = new Map(katListe.map((k) => [k.id, k.name]));
+
+    // Die naechste offene Faelligkeit je Serie - das ist die Zahl, die
+    // interessiert: wann kommt das das naechste Mal.
+    const naechste = new Map();
+    for (const f of offene) {
+      if (!naechste.has(f.serie_id)) naechste.set(f.serie_id, f.faellig_am);
+    }
+
+    let ausgaben = 0, einnahmen = 0;
+    for (const s of liste) {
+      if (!s.aktiv) continue;
+      const proMonat = monatsbetrag(s);
+      if (s.art === "ausgabe") ausgaben += proMonat; else einnahmen += proMonat;
+    }
+    setzeText(document.getElementById("summe-ausgaben"), euro(ausgaben));
+    setzeText(document.getElementById("summe-einnahmen"), euro(einnahmen));
+
+    const aktive = document.getElementById("aktive");
+    const ruhende = document.getElementById("ruhende");
+
+    for (const s of liste) {
+      const eintrag = document.createElement("li");
+      if (!s.aktiv) eintrag.className = "ruhend";
+
+      const punkt = document.createElement("span");
+      punkt.className = "punkt";
+      punkt.style.background = s.art === "ausgabe" ? "var(--soll)" : "var(--haben)";
+
+      const text = document.createElement("span");
+      text.className = "zeile__text";
+      const titel = document.createElement("span");
+      titel.className = "zeile__titel";
+      titel.textContent = s.name;
+
+      const unter = document.createElement("span");
+      unter.className = "zeile__unter";
+      const teile = [rhythmusText(s), kontoName.get(s.konto_id) ?? ""];
+      if (s.kategorie_id) teile.push(katName.get(s.kategorie_id));
+      unter.textContent = teile.filter(Boolean).join(" · ");
+      text.append(titel, unter);
+
+      // Betrag und naechste Faelligkeit stehen untereinander rechts:
+      // in einer Zeile wurde die Unterzeile sonst abgeschnitten.
+      const rechts = document.createElement("span");
+      rechts.className = "zeile__rechts";
+
+      const betrag = document.createElement("span");
+      betrag.className = "zeile__betrag zahl";
+      betrag.textContent = euroMitZeichen(s.betrag, s.art);
+      if (s.aktiv) betrag.classList.add(s.art === "ausgabe" ? "soll" : "haben");
+      rechts.appendChild(betrag);
+
+      if (s.aktiv) {
+        // Faellt nichts mehr an, weil alles bestaetigt ist? Dann die
+        // naechste Faelligkeit selbst ausrechnen.
+        const wann = naechste.get(s.id) ?? naechsteFaelligkeiten(s, 1)[0];
+        const wannText = document.createElement("small");
+        wannText.textContent = wann ? tagKurzMitJahr(wann) : "keine weitere";
+        rechts.appendChild(wannText);
+      }
+
+      const zeile = document.createElement("a");
+      zeile.className = "zeile";
+      zeile.href = `serie.html?id=${s.id}`;
+      zeile.append(punkt, text, rechts);
+      eintrag.appendChild(zeile);
+
+      (s.aktiv ? aktive : ruhende).appendChild(eintrag);
+    }
+
+    if (!aktive.children.length) {
+      const leer = document.createElement("li");
+      leer.className = "leer";
+      leer.textContent = "Noch keine Fixkosten angelegt.";
+      aktive.appendChild(leer);
+    }
+    document.getElementById("block-ruhend").hidden = !ruhende.children.length;
+  } catch (ex) {
+    zeigeFehler("Die Fixkosten konnten nicht geladen werden: " + (ex.message ?? ex));
+  }
+</script>
+
+</body>
+</html>

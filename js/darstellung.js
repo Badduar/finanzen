@@ -16,6 +16,7 @@ const GELD_OHNE_ZEICHEN = new Intl.NumberFormat("de-DE", {
 const TAG_KURZ  = new Intl.DateTimeFormat("de-DE", { day: "2-digit", month: "2-digit" });
 const TAG_LANG  = new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "numeric", month: "short" });
 const MONAT     = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
+const TAG_VOLL  = new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
 export function euro(betrag) {
   return GELD.format(Number(betrag ?? 0));
@@ -67,7 +68,20 @@ function alsDatum(text) {
 }
 
 export function tagKurz(text)  { return TAG_KURZ.format(alsDatum(text)); }
+
+// Wie tagKurz, haengt aber das Jahr an, sobald es nicht das laufende ist.
+// Bei einer Jahresrechnung waere "05.01." sonst mehrdeutig.
+export function tagKurzMitJahr(text) {
+  const jahr = String(text).slice(0, 4);
+  return jahr === heuteAlsText().slice(0, 4)
+    ? tagKurz(text)
+    : `${tagKurz(text)}${jahr}`;
+}
 export function tagLang(text)  { return TAG_LANG.format(alsDatum(text)); }
+
+// Mit Jahreszahl - fuer Listen, die ueber Jahresgrenzen laufen. Eine
+// jaehrliche Serie zeigt sonst vier Mal denselben Tag ohne Unterschied.
+export function tagVoll(text)  { return TAG_VOLL.format(alsDatum(text)); }
 export function monatName(text) { return MONAT.format(alsDatum(text)); }
 
 // "heute", "gestern", "in 3 Tagen", "seit 5 Tagen" - fuer Faelligkeiten.

@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fixkosten bearbeiten – Finanzen</title>
+  <meta name="theme-color" content="#1e6b70">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/symbol.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/stil.css">
+</head>
+<body>
+
+<div class="seite">
+
+  <header class="kopfzeile">
+    <h1 id="ueberschrift">Neue Fixkosten</h1>
+    <a class="knopf knopf--still" href="fixkosten.html">Zurück</a>
+  </header>
+
+  <p class="meldung meldung--fehler" id="fehler" role="alert" hidden></p>
+
+  <form id="form">
+    <div class="artwahl" role="radiogroup" aria-label="Art">
+      <input type="radio" name="art" id="art-ausgabe" value="ausgabe" checked>
+      <label for="art-ausgabe">Feste Ausgabe</label>
+      <input type="radio" name="art" id="art-einnahme" value="einnahme">
+      <label for="art-einnahme">Feste Einnahme</label>
+    </div>
+
+    <div class="karte">
+      <label class="feld">
+        <span>Bezeichnung</span>
+        <input type="text" name="name" maxlength="80" required placeholder="z. B. Miete">
+      </label>
+
+      <label class="feld">
+        <span>Betrag</span>
+        <input type="text" name="betrag" inputmode="decimal" required placeholder="0,00">
+      </label>
+
+      <div class="zweispaltig">
+        <label class="feld">
+          <span>Rhythmus</span>
+          <select name="rhythmus"></select>
+        </label>
+        <label class="feld">
+          <span id="intervall-beschriftung">Wiederholung</span>
+          <select name="intervall"></select>
+        </label>
+      </div>
+
+      <label class="feld" id="feld-tag">
+        <span>Fällig am</span>
+        <select name="faelligkeitstag"></select>
+      </label>
+
+      <div class="zweispaltig">
+        <label class="feld">
+          <span>Läuft ab</span>
+          <input type="date" name="beginnt_am" required>
+        </label>
+        <label class="feld">
+          <span>Läuft bis (optional)</span>
+          <input type="date" name="endet_am">
+        </label>
+      </div>
+
+      <label class="feld">
+        <span>Konto</span>
+        <select name="konto_id" required></select>
+      </label>
+
+      <label class="feld">
+        <span>Kategorie</span>
+        <select name="kategorie_id"></select>
+      </label>
+
+      <label class="feld">
+        <span id="wer-beschriftung">Empfänger</span>
+        <input type="text" name="wer" maxlength="120" autocomplete="off"
+               placeholder="z. B. Hausverwaltung">
+      </label>
+
+      <label class="feld">
+        <span>Notiz</span>
+        <input type="text" name="notiz" maxlength="1000" autocomplete="off" placeholder="optional">
+      </label>
+
+      <label class="schalterzeile" id="zeile-aktiv" hidden>
+        <input type="checkbox" name="aktiv" checked>
+        <span>
+          <strong>Läuft weiter</strong>
+          <small>Stillgelegte Fixkosten erzeugen keine Fälligkeiten mehr,
+                 bleiben aber mit ihrer Geschichte erhalten.</small>
+        </span>
+      </label>
+    </div>
+
+    <section class="vorschau" id="vorschau">
+      <h2>Die nächsten Fälligkeiten</h2>
+      <p id="vorschau-liste">–</p>
+      <p id="vorschau-monat"></p>
+    </section>
+
+    <div class="knopfreihe">
+      <button class="knopf knopf--haupt knopf--breit" type="submit" id="speichern">Speichern</button>
+    </div>
+    <p class="knopfreihe" id="loeschzeile" hidden>
+      <button class="knopf knopf--breit" type="button" id="loeschen">Fixkosten löschen</button>
+    </p>
+  </form>
+
+</div>
+
+<style>
+  .artwahl { display: flex; gap: 4px; padding: 4px; margin: 4px 0 18px;
+    background: var(--flaeche-2); border-radius: 999px; }
+  .artwahl input { position: absolute; opacity: 0; pointer-events: none; }
+  .artwahl label { flex: 1; text-align: center; cursor: pointer;
+    padding: 9px 6px; border-radius: 999px; font-weight: 500;
+    color: var(--gedaempft); font-size: 15px; }
+  .artwahl input:checked + label { background: var(--flaeche); color: var(--tinte);
+    box-shadow: var(--schatten); }
+  .artwahl input:focus-visible + label { outline: 2px solid var(--petrol); outline-offset: 2px; }
+
+  .zweispaltig { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  .schalterzeile { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 0; }
+  .schalterzeile input { width: 22px; height: 22px; margin-top: 2px; flex: none; }
+  .schalterzeile strong { display: block; font-weight: 500; }
+  .schalterzeile small { display: block; color: var(--gedaempft); font-size: 13.5px;
+    line-height: 1.4; margin-top: 2px; }
+
+  .vorschau { margin-top: 16px; padding: 14px 16px; border-radius: var(--radius);
+    background: var(--petrol-weich); }
+  .vorschau h2 { font-size: 13px; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--petrol); margin-bottom: 6px; }
+  .vorschau p { margin: 0; font-variant-numeric: tabular-nums; }
+  #vorschau-monat { margin-top: 6px; font-size: 14px; color: var(--gedaempft); }
+
+  .knopfreihe { margin-top: 16px; }
+  #loeschen { color: var(--soll); }
+</style>
+
+<script type="module">
+  import { verlangeAnmeldung } from "./js/auth.js";
+  import { navigationZeichnen } from "./js/navigation.js";
+  import {
+    konten, kategorien, alsBaum, serien, serieAnlegen, serieAendern, serieLoeschen,
+  } from "./js/daten.js";
+  import {
+    euro, betragFuerFeld, betragAusFeld, heuteAlsText, tagVoll, setzeText,
+  } from "./js/darstellung.js";
+  import { naechsteFaelligkeiten, monatsbetrag } from "./js/serie.js";
+  import { RHYTHMEN } from "./js/konfig.js";
+
+  if (!await verlangeAnmeldung()) throw new Error("nicht angemeldet");
+  navigationZeichnen("fixkosten.html");
+
+  const form = document.getElementById("form");
+  const felder = form.elements;
+  const fehler = document.getElementById("fehler");
+
+  function zeigeFehler(text) {
+    if (!text) { fehler.hidden = true; return; }
+    fehler.textContent = text;
+    fehler.hidden = false;
+    fehler.scrollIntoView({ block: "nearest" });
+  }
+
+  const bearbeiteId = new URLSearchParams(location.search).get("id");
+
+  // ----- Auswahllisten -----
+
+  for (const [schluessel, beschriftung] of RHYTHMEN) {
+    const option = document.createElement("option");
+    option.value = schluessel;
+    option.textContent = beschriftung;
+    felder.rhythmus.appendChild(option);
+  }
+  felder.rhythmus.value = "monatlich";
+
+  for (let i = 1; i <= 12; i++) {
+    const option = document.createElement("option");
+    option.value = String(i);
+    option.textContent = i === 1 ? "jedes Mal" : `jedes ${i}.`;
+    felder.intervall.appendChild(option);
+  }
+
+  for (let tag = 1; tag <= 31; tag++) {
+    const option = document.createElement("option");
+    option.value = String(tag);
+    option.textContent = `${tag}.`;
+    felder.faelligkeitstag.appendChild(option);
+  }
+  // Der 31. ist gueltig - in kurzen Monaten rutscht er auf den Letzten.
+  felder.faelligkeitstag.options[30].textContent = "31. (in kurzen Monaten der Letzte)";
+
+  const [kontoListe, katListe] = await Promise.all([konten(), kategorien()]);
+  for (const k of kontoListe) {
+    const option = document.createElement("option");
+    option.value = k.id;
+    option.textContent = k.name;
+    felder.konto_id.appendChild(option);
+  }
+
+  function kategorienEintragen(art) {
+    const auswahl = felder.kategorie_id;
+    const vorher = auswahl.value;
+    auswahl.textContent = "";
+    const leer = document.createElement("option");
+    leer.value = "";
+    leer.textContent = "– ohne Kategorie –";
+    auswahl.appendChild(leer);
+
+    for (const haupt of alsBaum(katListe.filter((k) => k.art === art))) {
+      const gruppe = document.createElement("optgroup");
+      gruppe.label = haupt.name;
+      const selbst = document.createElement("option");
+      selbst.value = haupt.id;
+      selbst.textContent = haupt.name + " (allgemein)";
+      gruppe.appendChild(selbst);
+      for (const kind of haupt.kinder) {
+        const option = document.createElement("option");
+        option.value = kind.id;
+        option.textContent = kind.name;
+        gruppe.appendChild(option);
+      }
+      auswahl.appendChild(gruppe);
+    }
+    if (vorher) auswahl.value = vorher;
+  }
+
+  // ----- Auf Eingaben reagieren -----
+
+  function regelAusFormular() {
+    return {
+      rhythmus: felder.rhythmus.value,
+      intervall: Number(felder.intervall.value),
+      faelligkeitstag: Number(felder.faelligkeitstag.value),
+      beginnt_am: felder.beginnt_am.value,
+      endet_am: felder.endet_am.value || null,
+      betrag: betragAusFeld(felder.betrag.value) ?? 0,
+    };
+  }
+
+  function aktualisieren() {
+    const art = form.querySelector("input[name=art]:checked").value;
+    setzeText(document.getElementById("wer-beschriftung"),
+      art === "einnahme" ? "Von wem" : "Empfänger");
+    felder.wer.placeholder = art === "einnahme" ? "z. B. Arbeitgeber" : "z. B. Hausverwaltung";
+    kategorienEintragen(art);
+
+    const woechentlich = felder.rhythmus.value === "woechentlich";
+    document.getElementById("feld-tag").hidden = woechentlich;
+    setzeText(document.getElementById("intervall-beschriftung"),
+      woechentlich ? "Alle wie viel Wochen" : "Wiederholung");
+
+    const regel = regelAusFormular();
+    const termine = naechsteFaelligkeiten(regel, 4);
+    setzeText(document.getElementById("vorschau-liste"),
+      termine.length ? termine.map(tagVoll).join(" · ")
+        : "Mit diesen Angaben steht nichts an. Beginn und Enddatum prüfen.");
+
+    const proMonat = monatsbetrag({ ...regel, betrag: regel.betrag });
+    setzeText(document.getElementById("vorschau-monat"),
+      regel.betrag > 0 && felder.rhythmus.value !== "monatlich"
+        ? `Entspricht ${euro(proMonat)} im Monat.` : "");
+  }
+
+  form.addEventListener("input", aktualisieren);
+  form.addEventListener("change", aktualisieren);
+
+  // ----- Vorbelegung -----
+
+  if (bearbeiteId) {
+    const alle = await serien();
+    const s = alle.find((eintrag) => eintrag.id === bearbeiteId);
+    if (!s) {
+      zeigeFehler("Diese Fixkosten gibt es nicht mehr.");
+    } else {
+      setzeText(document.getElementById("ueberschrift"), "Fixkosten ändern");
+      document.getElementById("loeschzeile").hidden = false;
+      document.getElementById("zeile-aktiv").hidden = false;
+
+      form.querySelector(`input[name=art][value="${s.art}"]`).checked = true;
+      felder.name.value = s.name;
+      felder.betrag.value = betragFuerFeld(s.betrag);
+      felder.rhythmus.value = s.rhythmus;
+      felder.intervall.value = String(s.intervall);
+      felder.faelligkeitstag.value = String(s.faelligkeitstag || 1);
+      felder.beginnt_am.value = s.beginnt_am;
+      felder.endet_am.value = s.endet_am ?? "";
+      felder.konto_id.value = s.konto_id;
+      kategorienEintragen(s.art);
+      if (s.kategorie_id) felder.kategorie_id.value = s.kategorie_id;
+      felder.wer.value = s.wer ?? "";
+      felder.notiz.value = s.notiz ?? "";
+      felder.aktiv.checked = s.aktiv;
+    }
+  } else {
+    felder.beginnt_am.value = heuteAlsText();
+    felder.faelligkeitstag.value = String(Number(heuteAlsText().slice(8, 10)));
+  }
+  aktualisieren();
+
+  // ----- Speichern -----
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    zeigeFehler(null);
+
+    const betrag = betragAusFeld(felder.betrag.value);
+    if (betrag === null || betrag <= 0) {
+      zeigeFehler("Bitte einen Betrag größer als null eintragen. Beispiel: 850,00");
+      felder.betrag.focus();
+      return;
+    }
+    if (felder.endet_am.value && felder.endet_am.value < felder.beginnt_am.value) {
+      zeigeFehler("Das Ende darf nicht vor dem Beginn liegen.");
+      return;
+    }
+
+    const serie = {
+      name: felder.name.value.trim(),
+      betrag,
+      art: form.querySelector("input[name=art]:checked").value,
+      rhythmus: felder.rhythmus.value,
+      intervall: Number(felder.intervall.value),
+      faelligkeitstag: felder.rhythmus.value === "woechentlich"
+        ? 0 : Number(felder.faelligkeitstag.value),
+      beginnt_am: felder.beginnt_am.value,
+      endet_am: felder.endet_am.value || null,
+      konto_id: felder.konto_id.value,
+      kategorie_id: felder.kategorie_id.value || null,
+      wer: felder.wer.value.trim() || null,
+      notiz: felder.notiz.value.trim() || null,
+      aktiv: bearbeiteId ? felder.aktiv.checked : true,
+    };
+
+    const knopf = document.getElementById("speichern");
+    knopf.disabled = true;
+    knopf.textContent = "Wird gespeichert …";
+    try {
+      if (bearbeiteId) await serieAendern(bearbeiteId, serie);
+      else await serieAnlegen(serie);
+      location.href = "fixkosten.html";
+    } catch (ex) {
+      zeigeFehler("Das Speichern hat nicht geklappt: " + (ex.message ?? ex));
+      knopf.disabled = false;
+      knopf.textContent = "Speichern";
+    }
+  });
+
+  document.getElementById("loeschen").addEventListener("click", async () => {
+    const hinweis = "Diese Fixkosten wirklich löschen?\n\n"
+      + "Bereits gebuchte Zahlungen bleiben erhalten, verlieren aber ihren "
+      + "Bezug zur Serie. Wenn du sie nur pausieren willst, nimm stattdessen "
+      + "den Haken bei „Läuft weiter“ heraus.";
+    if (!confirm(hinweis)) return;
+    try {
+      await serieLoeschen(bearbeiteId);
+      location.href = "fixkosten.html";
+    } catch (ex) {
+      zeigeFehler("Das Löschen hat nicht geklappt: " + (ex.message ?? ex));
+    }
+  });
+</script>
+
+</body>
+</html>
