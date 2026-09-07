@@ -43,3 +43,24 @@ export const RHYTHMEN = [
 
 // Wie weit die Startseite in die Zukunft schaut.
 export const VORSCHAU_TAGE = 7;
+
+// Farben fuer die Kuchendiagramme: acht Werte je Modus, in fester
+// Reihenfolge. Sie sind darauf geprueft, dass benachbarte Stuecke auch
+// bei Rot-Gruen-Schwaeche unterscheidbar bleiben - eigene Farben nach
+// Gefuehl bestehen diese Pruefung nicht.
+//
+// Mehr als acht Stuecke gibt es nie: alles Weitere faellt in ein
+// neutrales Sammelstueck. Ein Kuchen mit sechzehn Stuecken ist
+// unlesbar, egal wie gut die Farben sind.
+export const DIAGRAMM_FARBEN = [
+  { hell: "#2a78d6", dunkel: "#3987e5" },  // blau
+  { hell: "#eb6834", dunkel: "#d95926" },  // orange
+  { hell: "#1baf7a", dunkel: "#199e70" },  // aqua
+  { hell: "#eda100", dunkel: "#c98500" },  // gelb
+  { hell: "#e87ba4", dunkel: "#d55181" },  // magenta
+  { hell: "#008300", dunkel: "#008300" },  // gruen
+  { hell: "#4a3aa7", dunkel: "#9085e9" },  // violett
+  { hell: "#e34948", dunkel: "#e66767" },  // rot
+];
+
+export const DIAGRAMM_SAMMEL = { hell: "#8a8a80", dunkel: "#9c9c92" };

@@ -18,6 +18,17 @@ const TAG_LANG  = new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "num
 const MONAT     = new Intl.DateTimeFormat("de-DE", { month: "long", year: "numeric" });
 const TAG_VOLL  = new Intl.DateTimeFormat("de-DE", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
 
+// Anteil in Prozent, deutsch geschrieben. Unter zehn Prozent mit einer
+// Nachkommastelle, darueber ohne - sonst suggeriert die Zahl eine
+// Genauigkeit, die sie nicht hat.
+export function prozent(anteil) {
+  const wert = Number(anteil ?? 0) * 100;
+  return new Intl.NumberFormat("de-DE", {
+    minimumFractionDigits: wert < 10 ? 1 : 0,
+    maximumFractionDigits: wert < 10 ? 1 : 0,
+  }).format(wert) + " %";
+}
+
 export function euro(betrag) {
   return GELD.format(Number(betrag ?? 0));
 }

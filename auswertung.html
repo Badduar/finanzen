@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Auswertung – Finanzen</title>
+  <meta name="theme-color" content="#1e6b70">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/symbol.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/stil.css">
+</head>
+<body>
+
+<div class="seite">
+
+  <header class="kopfzeile">
+    <h1>Auswertung</h1>
+  </header>
+
+  <p class="meldung meldung--fehler" id="fehler" role="alert" hidden></p>
+
+  <div class="artwahl" role="tablist" aria-label="Was ausgewertet wird">
+    <input type="radio" name="sicht" id="sicht-ausgaben" value="ausgabe" checked>
+    <label for="sicht-ausgaben">Ausgaben</label>
+    <input type="radio" name="sicht" id="sicht-einnahmen" value="einnahme">
+    <label for="sicht-einnahmen">Einnahmen</label>
+    <input type="radio" name="sicht" id="sicht-fixkosten" value="fixkosten">
+    <label for="sicht-fixkosten">Fixkosten</label>
+  </div>
+
+  <div class="monatswahl" id="zeitraumwahl">
+    <button class="pfeil" id="monat-zurueck" type="button" aria-label="Vorheriger Zeitraum">‹</button>
+    <input type="month" id="monat" aria-label="Monat">
+    <button class="pfeil" id="monat-vor" type="button" aria-label="Nächster Zeitraum">›</button>
+  </div>
+  <p class="jahresschalter">
+    <button class="verweis" id="jahr-um" type="button">Ganzes Jahr ansehen</button>
+  </p>
+
+  <p class="fixkosten-hinweis" id="fixkosten-hinweis" hidden>
+    Alle laufenden Fixkosten, umgerechnet auf einen Monat: eine Jahresrechnung
+    zählt mit einem Zwölftel.
+  </p>
+
+  <!-- Ring mit Summe in der Mitte -->
+  <figure class="kuchen">
+    <div class="kuchen__bild">
+      <svg id="kuchen" viewBox="0 0 200 200" role="img" aria-labelledby="kuchen-titel"></svg>
+      <div class="kuchen__mitte">
+        <p class="kuchen__beschriftung" id="mitte-name">Gesamt</p>
+        <p class="kuchen__summe zahl" id="mitte-summe">–</p>
+        <p class="kuchen__anteil" id="mitte-anteil"></p>
+      </div>
+    </div>
+    <figcaption id="kuchen-titel" class="kuchen__unterschrift"></figcaption>
+  </figure>
+
+  <!-- Die Zahlen als Liste: das Diagramm zeigt die Form, hier stehen die Werte -->
+  <ul class="verteilung" id="verteilung"></ul>
+
+  <p class="leer" id="leer" hidden>In diesem Zeitraum gibt es nichts auszuwerten.</p>
+
+</div>
+
+<style>
+  .artwahl { display: flex; gap: 4px; padding: 4px; margin: 4px 0 14px;
+    background: var(--flaeche-2); border-radius: 999px; }
+  .artwahl input { position: absolute; opacity: 0; pointer-events: none; }
+  .artwahl label { flex: 1; text-align: center; cursor: pointer;
+    padding: 9px 6px; border-radius: 999px; font-weight: 500;
+    color: var(--gedaempft); font-size: 15px; }
+  .artwahl input:checked + label { background: var(--flaeche); color: var(--tinte);
+    box-shadow: var(--schatten); }
+  .artwahl input:focus-visible + label { outline: 2px solid var(--petrol); outline-offset: 2px; }
+
+  .monatswahl { display: flex; align-items: center; gap: 8px; }
+  .monatswahl input { flex: 1; text-align: center; }
+  .pfeil { flex: none; width: 44px; min-height: 44px; font-size: 20px; line-height: 1;
+    border: 1px solid var(--linie); border-radius: 9px; background: var(--flaeche);
+    color: var(--tinte); cursor: pointer; }
+  .jahresschalter { margin: 8px 0 0; text-align: center; }
+  .fixkosten-hinweis { margin: 12px 0 0; font-size: 14px; color: var(--gedaempft); }
+
+  .kuchen { margin: 18px 0 0; }
+  .kuchen__bild { position: relative; width: min(260px, 72vw); margin: 0 auto; }
+  .kuchen__bild svg { display: block; width: 100%; height: auto; }
+  .kuchen__mitte { position: absolute; inset: 0; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; text-align: center;
+    pointer-events: none; padding: 0 42px; }
+  .kuchen__beschriftung { margin: 0; font-size: 12.5px; color: var(--gedaempft);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+  .kuchen__summe { margin: 2px 0 0; font-size: 21px; font-weight: 600; }
+  .kuchen__anteil { margin: 1px 0 0; font-size: 12.5px; color: var(--gedaempft); }
+  .kuchen__unterschrift { margin: 12px 0 0; text-align: center; font-size: 14px;
+    color: var(--gedaempft); }
+
+  .verteilung { list-style: none; margin: 16px 0 0; padding: 0; }
+  .verteilung li + li { margin-top: 2px; }
+  .verteilung button {
+    display: grid; grid-template-columns: 12px 1fr auto; gap: 10px;
+    align-items: center; width: 100%; text-align: left; font: inherit;
+    background: none; border: 0; border-radius: 9px; padding: 9px 8px; cursor: pointer;
+    color: inherit;
+  }
+  .verteilung button:hover, .verteilung button:focus-visible { background: var(--flaeche-2); }
+  .verteilung .punkt { width: 12px; height: 12px; }
+  .verteilung .name { min-width: 0; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; }
+  .verteilung .wert { text-align: right; font-variant-numeric: tabular-nums;
+    white-space: nowrap; }
+  .verteilung .wert small { display: block; font-size: 12.5px; color: var(--gedaempft); }
+  .verteilung .balken { grid-column: 2 / -1; height: 3px; border-radius: 2px;
+    background: var(--flaeche-2); overflow: hidden; margin-top: -4px; }
+  .verteilung .balken i { display: block; height: 100%; }
+
+  .zurueck-zeile { margin: 14px 0 0; }
+</style>
+
+<script type="module">
+  import { verlangeAnmeldung } from "./js/auth.js";
+  import { navigationZeichnen } from "./js/navigation.js";
+  import {
+    verteilungNachKategorie, verteilungInKategorie, kategorien, alsBaum, serien,
+  } from "./js/daten.js";
+  import {
+    euro, prozent, heuteAlsText, monatsGrenzen, monatName, setzeText,
+  } from "./js/darstellung.js";
+  import { kuchenZeichnen, stueckeBilden, stueckFarbe, stueckHervorheben } from "./js/kuchen.js";
+  import { monatsbetrag } from "./js/serie.js";
+
+  if (!await verlangeAnmeldung()) throw new Error("nicht angemeldet");
+  navigationZeichnen("auswertung.html");
+
+  const fehler = document.getElementById("fehler");
+  function zeigeFehler(text) {
+    if (!text) { fehler.hidden = true; return; }
+    fehler.textContent = text;
+    fehler.hidden = false;
+  }
+
+  const svg = document.getElementById("kuchen");
+  const feldMonat = document.getElementById("monat");
+  feldMonat.value = heuteAlsText().slice(0, 7);
+
+  let ganzesJahr = false;
+  let vertiefung = null;   // id der Hauptkategorie, in die hineingesehen wird
+
+  // Feste Plaetze fuer die Farben. Sie haengen an der Kategorie, nicht am
+  // Betrag im gewaehlten Monat - sonst wechselte "Wohnen" beim Blaettern
+  // staendig die Farbe und man koennte zwei Monate nicht vergleichen.
+  const plaetze = new Map();
+
+  async function plaetzeFestlegen() {
+    // Rangfolge ueber den gesamten Bestand, nicht ueber den Zeitraum.
+    const gesamt = await verteilungNachKategorie({
+      von: "1900-01-01", bis: "2999-12-31", art: "ausgabe",
+    });
+    const einnahmen = await verteilungNachKategorie({
+      von: "1900-01-01", bis: "2999-12-31", art: "einnahme",
+    });
+    gesamt.forEach((k, i) => { if (k.id) plaetze.set(k.id, i); });
+    einnahmen.forEach((k, i) => { if (k.id) plaetze.set(k.id, i); });
+
+    // Kategorien ohne jede Buchung bekommen ebenfalls einen festen Platz,
+    // damit sie beim ersten Auftauchen nicht die Farben verschieben.
+    const alle = alsBaum(await kategorien({ nurAktive: false }));
+    let naechster = plaetze.size;
+    for (const k of alle) if (!plaetze.has(k.id)) plaetze.set(k.id, naechster++);
+  }
+
+  function zeitraum() {
+    if (ganzesJahr) {
+      const jahr = feldMonat.value.slice(0, 4);
+      return { von: `${jahr}-01-01`, bis: `${jahr}-12-31`, name: `Jahr ${jahr}` };
+    }
+    const { von, bis } = monatsGrenzen(feldMonat.value + "-01");
+    return { von, bis, name: monatName(von) };
+  }
+
+  // ----- Zeichnen -----
+
+  function verteilungZeichnen(posten, { gesamtName, unterschrift, mitVertiefung }) {
+    const summe = posten.reduce((s, p) => s + p.summe, 0);
+    const liste = document.getElementById("verteilung");
+    liste.textContent = "";
+
+    document.getElementById("leer").hidden = summe > 0;
+    setzeText(document.getElementById("kuchen-titel"), unterschrift);
+    setzeText(document.getElementById("mitte-name"), gesamtName);
+    setzeText(document.getElementById("mitte-summe"), euro(summe));
+    setzeText(document.getElementById("mitte-anteil"), "");
+
+    const stuecke = mitVertiefung
+      ? stueckeBilden(posten, plaetze)
+      : posten.map((p, i) => ({ ...p, farbe: stueckFarbe(i) }));
+
+    kuchenZeichnen(svg, stuecke, {
+      beiAuswahl: (stueck, platz) => mitteZeigen(stueck, summe, platz),
+    });
+
+    stuecke.forEach((stueck, i) => {
+      const anteil = summe > 0 ? stueck.summe / summe : 0;
+
+      const punkt = document.createElement("span");
+      punkt.className = "punkt";
+      punkt.style.background = stueck.farbe;
+
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = stueck.name;
+
+      const wert = document.createElement("span");
+      wert.className = "wert";
+      wert.textContent = euro(stueck.summe);
+      const anteilText = document.createElement("small");
+      anteilText.textContent = prozent(anteil);
+      wert.appendChild(anteilText);
+
+      const balken = document.createElement("span");
+      balken.className = "balken";
+      const fuellung = document.createElement("i");
+      fuellung.style.width = `${Math.max(anteil * 100, 1)}%`;
+      fuellung.style.background = stueck.farbe;
+      balken.appendChild(fuellung);
+
+      const knopf = document.createElement("button");
+      knopf.type = "button";
+      knopf.append(punkt, name, wert, balken);
+      knopf.addEventListener("mouseenter", () => mitteZeigen(stueck, summe, i));
+      knopf.addEventListener("focus", () => mitteZeigen(stueck, summe, i));
+      knopf.addEventListener("mouseleave", () => mitteZuruecksetzen(gesamtName, summe));
+      knopf.addEventListener("click", () => {
+        if (mitVertiefung && stueck.id) { vertiefung = stueck.id; laden(); }
+      });
+
+      const eintrag = document.createElement("li");
+      eintrag.appendChild(knopf);
+      liste.appendChild(eintrag);
+    });
+
+    if (vertiefung) {
+      const zurueck = document.createElement("li");
+      zurueck.className = "zurueck-zeile";
+      const knopf = document.createElement("button");
+      knopf.type = "button";
+      knopf.className = "knopf knopf--breit";
+      knopf.textContent = "Zurück zu allen Kategorien";
+      knopf.addEventListener("click", () => { vertiefung = null; laden(); });
+      zurueck.appendChild(knopf);
+      liste.appendChild(zurueck);
+    }
+  }
+
+  function mitteZeigen(stueck, summe, platz) {
+    setzeText(document.getElementById("mitte-name"), stueck.name);
+    setzeText(document.getElementById("mitte-summe"), euro(stueck.summe));
+    setzeText(document.getElementById("mitte-anteil"),
+      summe > 0 ? `${prozent(stueck.summe / summe)} vom Ganzen` : "");
+    stueckHervorheben(svg, platz);
+  }
+
+  function mitteZuruecksetzen(name, summe) {
+    setzeText(document.getElementById("mitte-name"), name);
+    setzeText(document.getElementById("mitte-summe"), euro(summe));
+    setzeText(document.getElementById("mitte-anteil"), "");
+    stueckHervorheben(svg, null);
+  }
+
+  // ----- Laden -----
+
+  async function laden() {
+    zeigeFehler(null);
+    const sicht = document.querySelector("input[name=sicht]:checked").value;
+    const fixkosten = sicht === "fixkosten";
+
+    document.getElementById("zeitraumwahl").hidden = fixkosten;
+    document.getElementById("jahr-um").parentElement.hidden = fixkosten;
+    document.getElementById("fixkosten-hinweis").hidden = !fixkosten;
+
+    try {
+      if (fixkosten) {
+        await fixkostenZeichnen();
+        return;
+      }
+
+      const { von, bis, name } = zeitraum();
+
+      if (vertiefung) {
+        const alle = alsBaum(await kategorien({ art: sicht, nurAktive: false }));
+        const haupt = alle.find((k) => k.id === vertiefung);
+        const posten = await verteilungInKategorie({ von, bis, hauptId: vertiefung, art: sicht });
+        verteilungZeichnen(posten, {
+          gesamtName: haupt?.name ?? "Kategorie",
+          unterschrift: `${haupt?.name ?? ""} im Zeitraum ${name}`,
+          mitVertiefung: false,
+        });
+      } else {
+        const posten = await verteilungNachKategorie({ von, bis, art: sicht });
+        verteilungZeichnen(posten, {
+          gesamtName: sicht === "ausgabe" ? "Ausgaben" : "Einnahmen",
+          unterschrift: `${name} · zum Vertiefen eine Kategorie antippen`,
+          mitVertiefung: true,
+        });
+      }
+    } catch (ex) {
+      zeigeFehler("Die Auswertung konnte nicht geladen werden: " + (ex.message ?? ex));
+    }
+  }
+
+  // Fixkosten: nicht was gebucht wurde, sondern was die laufenden Serien
+  // je Monat ausmachen. Deshalb aus den Regeln gerechnet, nicht aus den
+  // Buchungen - ein Jahresbeitrag taucht sonst in elf Monaten gar nicht auf.
+  async function fixkostenZeichnen() {
+    const [liste, katListe] = await Promise.all([
+      serien({ nurAktive: true }), kategorien({ nurAktive: false }),
+    ]);
+    const elternVon = new Map(katListe.map((k) => [k.id, k.eltern_id ?? k.id]));
+    const nameVon = new Map(katListe.map((k) => [k.id, k.name]));
+
+    const summen = new Map();
+    for (const s of liste) {
+      if (s.art !== "ausgabe") continue;
+      const haupt = s.kategorie_id ? (elternVon.get(s.kategorie_id) ?? s.kategorie_id) : null;
+      const schluessel = haupt ?? "ohne";
+      summen.set(schluessel, (summen.get(schluessel) ?? 0) + monatsbetrag(s));
+    }
+
+    const posten = [...summen.entries()].map(([id, summe]) => ({
+      id: id === "ohne" ? null : id,
+      name: id === "ohne" ? "Ohne Kategorie" : (nameVon.get(id) ?? "Unbekannt"),
+      summe,
+    })).sort((a, b) => b.summe - a.summe);
+
+    verteilungZeichnen(posten, {
+      gesamtName: "Fixkosten",
+      unterschrift: "Feste Ausgaben je Monat",
+      mitVertiefung: false,
+    });
+  }
+
+  // ----- Bedienung -----
+
+  for (const feld of document.querySelectorAll("input[name=sicht]")) {
+    feld.addEventListener("change", () => { vertiefung = null; laden(); });
+  }
+  feldMonat.addEventListener("change", () => { vertiefung = null; laden(); });
+
+  function zeitraumVerschieben(schritte) {
+    const [jahr, monat] = feldMonat.value.split("-").map(Number);
+    const neu = ganzesJahr
+      ? new Date(jahr + schritte, monat - 1, 1)
+      : new Date(jahr, monat - 1 + schritte, 1);
+    feldMonat.value = `${neu.getFullYear()}-${String(neu.getMonth() + 1).padStart(2, "0")}`;
+    vertiefung = null;
+    laden();
+  }
+  document.getElementById("monat-zurueck")
+    .addEventListener("click", () => zeitraumVerschieben(-1));
+  document.getElementById("monat-vor")
+    .addEventListener("click", () => zeitraumVerschieben(1));
+
+  document.getElementById("jahr-um").addEventListener("click", () => {
+    ganzesJahr = !ganzesJahr;
+    setzeText(document.getElementById("jahr-um"),
+      ganzesJahr ? "Einzelnen Monat ansehen" : "Ganzes Jahr ansehen");
+    feldMonat.disabled = ganzesJahr;
+    vertiefung = null;
+    laden();
+  });
+
+  await plaetzeFestlegen();
+  await laden();
+</script>
+
+</body>
+</html>

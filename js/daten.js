@@ -251,6 +251,34 @@ export async function monatssumme(datum = heuteAlsText()) {
   return { von, bis, ausgaben, einnahmen };
 }
 
+// Wie sich eine Hauptkategorie auf ihre Unterkategorien verteilt -
+// das ist die Ansicht nach dem Antippen eines Tortenstuecks.
+export async function verteilungInKategorie({ von, bis, hauptId, art = "ausgabe" }) {
+  const alle = await kategorien({ art, nurAktive: false });
+  const kinder = alle.filter((k) => k.eltern_id === hauptId);
+  const eigene = [hauptId, ...kinder.map((k) => k.id)];
+
+  const { data, error } = await db.from("buchung")
+    .select("betrag, kategorie_id")
+    .is("geloescht_am", null)
+    .eq("art", art)
+    .in("kategorie_id", eigene)
+    .gte("datum", von).lte("datum", bis);
+  if (error) throw error;
+
+  const nameVon = new Map(alle.map((k) => [k.id, k.name]));
+  const summen = new Map();
+  for (const b of data ?? []) {
+    summen.set(b.kategorie_id, (summen.get(b.kategorie_id) ?? 0) + Number(b.betrag));
+  }
+
+  return [...summen.entries()].map(([id, summe]) => ({
+    id,
+    name: id === hauptId ? "Ohne Unterkategorie" : (nameVon.get(id) ?? "Unbekannt"),
+    summe,
+  })).sort((a, b) => b.summe - a.summe);
+}
+
 // Verteilung auf die Hauptkategorien - die Grundlage des Kuchendiagramms.
 // Unterkategorien werden ihrer Hauptkategorie zugeschlagen.
 export async function verteilungNachKategorie({ von, bis, art = "ausgabe" }) {
