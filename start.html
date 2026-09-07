@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Finanzen</title>
+  <meta name="theme-color" content="#1e6b70">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/symbol.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/stil.css">
+</head>
+<body>
+
+<div class="seite">
+
+  <header class="kopfzeile">
+    <h1>Finanzen</h1>
+    <button class="knopf knopf--still" id="abmelden" type="button">Abmelden</button>
+  </header>
+
+  <p class="meldung meldung--fehler" id="fehler" role="alert" hidden></p>
+
+  <!-- Gesamtsaldo und Vorschau -->
+  <section class="karte saldo">
+    <p class="saldo__beschriftung">Alle Konten zusammen</p>
+    <p class="saldo__zahl zahl" id="gesamtsaldo">–</p>
+    <p class="saldo__vorschau" id="vorschau"></p>
+  </section>
+
+  <!-- Konten -->
+  <section class="abschnitt">
+    <div class="abschnitt__kopf">
+      <h2>Konten</h2>
+      <a class="verweis" href="konten.html">Verwalten</a>
+    </div>
+    <ul class="liste" id="konten"></ul>
+  </section>
+
+  <!-- Offene Faelligkeiten -->
+  <section class="abschnitt" id="faellig-block" hidden>
+    <div class="abschnitt__kopf">
+      <h2>Fällig</h2>
+      <a class="verweis" href="fixkosten.html">Alle Fixkosten</a>
+    </div>
+    <ul class="liste" id="faellig"></ul>
+  </section>
+
+  <!-- Monat -->
+  <section class="abschnitt">
+    <div class="abschnitt__kopf">
+      <h2 id="monat-name">Dieser Monat</h2>
+    </div>
+    <div class="karte monat">
+      <div>
+        <p class="monat__beschriftung">Einnahmen</p>
+        <p class="monat__zahl zahl haben" id="monat-einnahmen">–</p>
+      </div>
+      <div>
+        <p class="monat__beschriftung">Ausgaben</p>
+        <p class="monat__zahl zahl soll" id="monat-ausgaben">–</p>
+      </div>
+      <div>
+        <p class="monat__beschriftung">Bleibt</p>
+        <p class="monat__zahl zahl" id="monat-rest">–</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- Letzte Buchungen -->
+  <section class="abschnitt">
+    <div class="abschnitt__kopf">
+      <h2>Zuletzt erfasst</h2>
+      <a class="verweis" href="buchungen.html">Alle</a>
+    </div>
+    <ul class="liste" id="letzte"></ul>
+  </section>
+
+</div>
+
+<!-- Faelligkeit bestaetigen -->
+<dialog id="dialog-buchen">
+  <form method="dialog" id="form-buchen">
+    <h2 id="buchen-titel">Fixkosten buchen</h2>
+    <p class="dialog__unter" id="buchen-unter"></p>
+
+    <label class="feld">
+      <span>Betrag</span>
+      <input type="text" name="betrag" inputmode="decimal" required>
+    </label>
+    <label class="feld">
+      <span>Datum</span>
+      <input type="date" name="datum" required>
+    </label>
+
+    <div class="dialog__knoepfe">
+      <button class="knopf" value="abbrechen" type="submit">Abbrechen</button>
+      <button class="knopf knopf--haupt" value="buchen" type="submit">Buchen</button>
+    </div>
+    <p style="text-align:center;margin:12px 0 0">
+      <button class="knopf knopf--still" value="ueberspringen" type="submit">Diesmal überspringen</button>
+    </p>
+  </form>
+</dialog>
+
+<style>
+  /* Nur auf dieser Seite gebraucht. */
+  .saldo { text-align: center; padding: 22px 16px; }
+  .saldo__beschriftung { margin: 0; font-size: 13px; letter-spacing: .06em;
+    text-transform: uppercase; color: var(--gedaempft); }
+  .saldo__zahl { margin: 6px 0 0; font-size: 38px; font-weight: 600; letter-spacing: -.02em; }
+  .saldo__vorschau { margin: 8px 0 0; font-size: 14.5px; color: var(--gedaempft); }
+
+  .monat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; }
+  .monat__beschriftung { margin: 0; font-size: 12.5px; color: var(--gedaempft); }
+  .monat__zahl { margin: 3px 0 0; font-size: 17px; font-weight: 600; }
+
+  dialog {
+    border: 1px solid var(--linie); border-radius: var(--radius);
+    background: var(--flaeche); color: var(--tinte);
+    padding: 20px; width: min(420px, calc(100vw - 32px));
+    box-shadow: var(--schatten-2);
+  }
+  dialog::backdrop { background: rgba(0, 0, 0, .45); }
+  .dialog__unter { margin: 4px 0 16px; color: var(--gedaempft); font-size: 14.5px; }
+  .dialog__knoepfe { display: flex; gap: 10px; }
+  .dialog__knoepfe .knopf { flex: 1; }
+
+  .faellig--ueberfaellig .zeile__unter { color: var(--warnung); font-weight: 500; }
+</style>
+
+<script type="module">
+  import { verlangeAnmeldung, abmelden, eigenesProfil } from "./js/auth.js";
+  import { navigationZeichnen } from "./js/navigation.js";
+  import {
+    kontenMitSaldo, offeneFaelligkeiten, monatssumme, buchungen,
+    faelligkeitBuchen, faelligkeitUeberspringen, kategorien,
+  } from "./js/daten.js";
+  import {
+    euro, euroMitZeichen, betragFuerFeld, betragAusFeld,
+    tagKurz, tageText, tageBis, monatName, heuteAlsText, monatsGrenzen, setzeText,
+  } from "./js/darstellung.js";
+  import { VORSCHAU_TAGE } from "./js/konfig.js";
+
+  if (!await verlangeAnmeldung()) throw new Error("nicht angemeldet");
+
+  const fehler = document.getElementById("fehler");
+  function zeigeFehler(text) {
+    if (!text) { fehler.hidden = true; return; }
+    fehler.textContent = text;
+    fehler.hidden = false;
+  }
+
+  document.getElementById("abmelden").addEventListener("click", async () => {
+    await abmelden();
+    location.replace("index.html");
+  });
+
+  navigationZeichnen("start.html");
+
+  // Wer angemeldet, aber nicht freigeschaltet ist, sieht sonst eine
+  // leere App ohne Erklaerung.
+  const profil = await eigenesProfil();
+  if (profil && !profil.freigeschaltet) {
+    zeigeFehler("Dieses Profil ist noch nicht freigeschaltet. Es ist an der "
+      + "Registrierung mit Einladungscode vorbei entstanden und sieht deshalb keine Daten.");
+  }
+
+  const heute = heuteAlsText();
+  const { bis: monatsEnde } = monatsGrenzen(heute);
+
+  let kartenKonten = [];
+  let kategorienListe = [];
+
+  async function laden() {
+    try {
+      const [salden, faellig, monat, letzte, kats] = await Promise.all([
+        kontenMitSaldo(),
+        offeneFaelligkeiten({ bis: monatsEnde }),
+        monatssumme(heute),
+        buchungen({ grenze: 5 }),
+        kategorien({ nurAktive: false }),
+      ]);
+      kartenKonten = salden;
+      kategorienListe = kats;
+
+      zeichneSalden(salden, faellig);
+      zeichneKonten(salden);
+      zeichneFaellig(faellig);
+      zeichneMonat(monat);
+      zeichneLetzte(letzte, salden, kats);
+    } catch (ex) {
+      zeigeFehler("Die Daten konnten nicht geladen werden: " + (ex.message ?? ex));
+    }
+  }
+
+  function zeichneSalden(salden, faellig) {
+    const gesamt = salden.reduce((summe, k) => summe + Number(k.saldo), 0);
+    setzeText(document.getElementById("gesamtsaldo"), euro(gesamt));
+
+    // Prognose: alles, was bis Monatsende noch offen ist, schon abgezogen
+    // beziehungsweise dazugerechnet.
+    const offen = faellig.reduce(
+      (summe, f) => summe + (f.art === "ausgabe" ? -Number(f.betrag) : Number(f.betrag)), 0);
+    const vorschau = document.getElementById("vorschau");
+    if (offen === 0) {
+      setzeText(vorschau, "Bis Monatsende steht nichts mehr an.");
+    } else {
+      setzeText(vorschau,
+        `Nach allen offenen Fixkosten am Monatsende: ${euro(gesamt + offen)}`);
+    }
+  }
+
+  function zeichneKonten(salden) {
+    const liste = document.getElementById("konten");
+    liste.textContent = "";
+    for (const k of salden) {
+      const punkt = document.createElement("span");
+      punkt.className = "punkt";
+      punkt.style.background = k.farbe;
+
+      const text = document.createElement("span");
+      text.className = "zeile__text";
+      const titel = document.createElement("span");
+      titel.className = "zeile__titel";
+      titel.textContent = k.name;
+      text.appendChild(titel);
+
+      const betrag = document.createElement("span");
+      betrag.className = "zeile__betrag zahl";
+      betrag.textContent = euro(k.saldo);
+      if (Number(k.saldo) < 0) betrag.classList.add("soll");
+
+      const zeile = document.createElement("a");
+      zeile.className = "zeile";
+      zeile.href = `buchungen.html?konto=${k.konto_id}`;
+      zeile.append(punkt, text, betrag);
+
+      const eintrag = document.createElement("li");
+      eintrag.appendChild(zeile);
+      liste.appendChild(eintrag);
+    }
+  }
+
+  function zeichneFaellig(faellig) {
+    const block = document.getElementById("faellig-block");
+    const liste = document.getElementById("faellig");
+    liste.textContent = "";
+
+    // Ueberfaelliges immer, Kommendes nur die naechsten Tage.
+    const sichtbar = faellig.filter(
+      (f) => f.ueberfaellig || tageBis(f.faellig_am) <= VORSCHAU_TAGE);
+    block.hidden = sichtbar.length === 0;
+    if (!sichtbar.length) return;
+
+    for (const f of sichtbar) {
+      const eintrag = document.createElement("li");
+      if (f.ueberfaellig) eintrag.className = "faellig--ueberfaellig";
+
+      const text = document.createElement("span");
+      text.className = "zeile__text";
+      const titel = document.createElement("span");
+      titel.className = "zeile__titel";
+      titel.textContent = f.name;
+      const unter = document.createElement("span");
+      unter.className = "zeile__unter";
+      unter.textContent = `${tagKurz(f.faellig_am)} · ${tageText(f.faellig_am)}`;
+      text.append(titel, unter);
+
+      const betrag = document.createElement("span");
+      betrag.className = "zeile__betrag zahl";
+      betrag.textContent = euroMitZeichen(f.betrag, f.art);
+      betrag.classList.add(f.art === "ausgabe" ? "soll" : "haben");
+
+      const zeile = document.createElement("button");
+      zeile.type = "button";
+      zeile.className = "zeile";
+      zeile.append(text, betrag);
+      zeile.addEventListener("click", () => buchenFragen(f));
+
+      eintrag.appendChild(zeile);
+      liste.appendChild(eintrag);
+    }
+  }
+
+  function zeichneMonat({ einnahmen, ausgaben }) {
+    setzeText(document.getElementById("monat-name"), monatName(heute));
+    setzeText(document.getElementById("monat-einnahmen"), euro(einnahmen));
+    setzeText(document.getElementById("monat-ausgaben"), euro(ausgaben));
+    const rest = document.getElementById("monat-rest");
+    setzeText(rest, euro(einnahmen - ausgaben));
+    rest.classList.toggle("soll", einnahmen - ausgaben < 0);
+    rest.classList.toggle("haben", einnahmen - ausgaben > 0);
+  }
+
+  function zeichneLetzte(liste, salden, kats) {
+    const ziel = document.getElementById("letzte");
+    ziel.textContent = "";
+    if (!liste.length) {
+      const leer = document.createElement("li");
+      leer.className = "leer";
+      leer.textContent = "Noch nichts erfasst.";
+      ziel.appendChild(leer);
+      return;
+    }
+
+    const kontoName = new Map(salden.map((k) => [k.konto_id, k.name]));
+    const katName = new Map(kats.map((k) => [k.id, k.name]));
+
+    for (const b of liste) {
+      const text = document.createElement("span");
+      text.className = "zeile__text";
+      const titel = document.createElement("span");
+      titel.className = "zeile__titel";
+      titel.textContent = b.art === "umbuchung"
+        ? "Umbuchung"
+        : (b.wer || katName.get(b.kategorie_id) || "Ohne Kategorie");
+      const unter = document.createElement("span");
+      unter.className = "zeile__unter";
+      unter.textContent = b.art === "umbuchung"
+        ? `${tagKurz(b.datum)} · ${kontoName.get(b.konto_id)} → ${kontoName.get(b.ziel_konto_id)}`
+        : `${tagKurz(b.datum)} · ${kontoName.get(b.konto_id) ?? ""}`;
+      text.append(titel, unter);
+
+      const betrag = document.createElement("span");
+      betrag.className = "zeile__betrag zahl";
+      betrag.textContent = euroMitZeichen(b.betrag, b.art);
+      if (b.art === "ausgabe") betrag.classList.add("soll");
+      if (b.art === "einnahme") betrag.classList.add("haben");
+
+      const zeile = document.createElement("a");
+      zeile.className = "zeile";
+      zeile.href = `erfassen.html?id=${b.id}`;
+      zeile.append(text, betrag);
+
+      const eintrag = document.createElement("li");
+      eintrag.appendChild(zeile);
+      ziel.appendChild(eintrag);
+    }
+  }
+
+  // ----- Faelligkeit bestaetigen -----
+
+  const dialog = document.getElementById("dialog-buchen");
+  const formBuchen = document.getElementById("form-buchen");
+  let offeneFaelligkeit = null;
+
+  function buchenFragen(f) {
+    offeneFaelligkeit = f;
+    setzeText(document.getElementById("buchen-titel"), f.name);
+    setzeText(document.getElementById("buchen-unter"),
+      `Fällig am ${tagKurz(f.faellig_am)}. Betrag anpassen, falls er abweicht.`);
+    formBuchen.elements.betrag.value = betragFuerFeld(f.betrag);
+    formBuchen.elements.datum.value = f.faellig_am;
+    dialog.showModal();
+  }
+
+  dialog.addEventListener("close", async () => {
+    const wahl = dialog.returnValue;
+    const f = offeneFaelligkeit;
+    offeneFaelligkeit = null;
+    if (!f || wahl === "abbrechen" || wahl === "") return;
+
+    try {
+      if (wahl === "ueberspringen") {
+        await faelligkeitUeberspringen(f.serie_id, f.faellig_am);
+      } else {
+        const betrag = betragAusFeld(formBuchen.elements.betrag.value);
+        if (betrag === null || betrag <= 0) {
+          zeigeFehler("Der Betrag war nicht lesbar. Beispiel: 1.234,56");
+          return;
+        }
+        await faelligkeitBuchen(f, {
+          betrag,
+          datum: formBuchen.elements.datum.value || f.faellig_am,
+        });
+      }
+      zeigeFehler(null);
+      await laden();
+    } catch (ex) {
+      zeigeFehler("Das hat nicht geklappt: " + (ex.message ?? ex));
+    }
+  });
+
+  await laden();
+</script>
+
+</body>
+</html>

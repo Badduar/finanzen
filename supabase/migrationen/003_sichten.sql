@@ -124,6 +124,11 @@ from public.konto k;
 --  bestaetigt wird - eine vergessene Rechnung soll nicht stillschweigend
 --  aus der Liste rutschen.
 --
+--  Faelligkeiten vor dem Startdatum des Kontos bleiben aussen vor: die
+--  stecken bereits im Startsaldo. Ohne diese Bedingung wuerde eine Serie,
+--  die schon laenger laeuft, beim Anlegen eine Wand alter "offener"
+--  Posten erzeugen, die in Wahrheit laengst bezahlt sind.
+--
 --  Vorschau bis 60 Tage voraus; die App zeigt daraus je nach Ansicht
 --  die naechsten sieben Tage oder den Rest des Monats.
 create or replace view public.v_offene_faelligkeit
@@ -139,11 +144,13 @@ select
   f.faellig_am,
   (f.faellig_am < current_date) as ueberfaellig
 from public.serie s
+join public.konto k on k.id = s.konto_id
 cross join lateral intern.faelligkeiten(
        s.rhythmus, s.intervall, s.faelligkeitstag,
        s.beginnt_am, s.endet_am, (current_date + 60)
      ) as f(faellig_am)
 where s.aktiv
+  and f.faellig_am >= k.startdatum
   and not exists (
         select 1 from public.buchung b
          where b.serie_id = s.id

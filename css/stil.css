@@ -129,6 +129,7 @@ h3 { font-size: 16px; font-weight: 600; }
   display: flex; align-items: center; gap: 12px;
   width: 100%; padding: 12px 14px; text-align: left;
   background: none; border: 0; color: inherit; font: inherit; cursor: pointer;
+  text-decoration: none;
 }
 .zeile:active { background: var(--flaeche-2); }
 .zeile__text { min-width: 0; flex: 1; }
@@ -158,10 +159,13 @@ h3 { font-size: 16px; font-weight: 600; }
 .knopf--breit { width: 100%; }
 .knopf--still { border-color: transparent; background: transparent; color: var(--petrol); }
 
-button.verweis {
+/* Kleiner Verweis rechts in einer Abschnittsueberschrift - als Link
+   oder als Knopf, je nachdem ob er auf eine Seite fuehrt oder etwas tut. */
+.verweis {
   font: inherit; font-size: 14px; background: none; border: 0; padding: 0;
-  color: var(--petrol); cursor: pointer;
+  color: var(--petrol); cursor: pointer; text-decoration: none;
 }
+.verweis:hover { text-decoration: underline; }
 
 .feld { display: block; margin-bottom: 14px; }
 .feld > span { display: block; font-size: 13px; font-weight: 500;
