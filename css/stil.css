@@ -1,0 +1,243 @@
+/* ============================================================
+   Finanzen - gemeinsames Stylesheet
+   ============================================================
+   Fuer das Handy gebaut: eine Spalte, grosse Tippflaechen,
+   Navigation unten am Daumen. Auf breiten Schirmen wird die
+   Spalte mittig begrenzt statt in die Breite gezogen.
+
+   Farben stehen als Variablen oben. Hell und dunkel richten sich
+   nach der Einstellung des Geraets.
+   ============================================================ */
+
+:root {
+  --papier:      #f1f3f2;
+  --flaeche:     #ffffff;
+  --flaeche-2:   #e9edeb;
+  --tinte:       #152a2e;
+  --gedaempft:   #5f7175;
+  --linie:       #d6dedb;
+  --petrol:      #1e6b70;
+  --petrol-weich:#dceaea;
+  --haben:       #2e7d4f;
+  --soll:        #9c4a33;
+  --warnung:     #b45309;
+  --schatten:    0 1px 2px rgba(21, 42, 46, .07);
+  --schatten-2:  0 4px 16px rgba(21, 42, 46, .12);
+  --radius:      12px;
+  --spur:        .06em;
+  --leiste:      64px;   /* Hoehe der unteren Navigation */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --papier:      #101a1c;
+    --flaeche:     #172426;
+    --flaeche-2:   #1e2e30;
+    --tinte:       #dfe7e5;
+    --gedaempft:   #8fa3a5;
+    --linie:       #28393b;
+    --petrol:      #5aafae;
+    --petrol-weich:#1b3639;
+    --haben:       #6fbe8e;
+    --soll:        #d98a70;
+    --warnung:     #e0a458;
+    --schatten:    0 1px 2px rgba(0, 0, 0, .35);
+    --schatten-2:  0 4px 16px rgba(0, 0, 0, .45);
+  }
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--papier);
+  color: var(--tinte);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  -webkit-tap-highlight-color: transparent;
+}
+
+h1, h2, h3 { margin: 0; line-height: 1.2; text-wrap: balance; }
+h1 { font-size: 24px; font-weight: 600; }
+h2 { font-size: 19px; font-weight: 600; }
+h3 { font-size: 16px; font-weight: 600; }
+
+/* Betraege und andere Zahlen stehen untereinander buendig. */
+.zahl {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.soll   { color: var(--soll); }
+.haben  { color: var(--haben); }
+
+/* ------------------------------------------------------------
+   Seitengeruest
+   ------------------------------------------------------------ */
+
+.seite {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 0 16px calc(var(--leiste) + 32px);
+}
+
+.kopfzeile {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--papier);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 0 10px;
+}
+.kopfzeile h1 { margin-right: auto; }
+
+.abschnitt { margin-top: 22px; }
+.abschnitt__kopf {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 9px;
+}
+.abschnitt__kopf h2 { font-size: 13px; font-weight: 600;
+  letter-spacing: var(--spur); text-transform: uppercase; color: var(--gedaempft); }
+.abschnitt__kopf a, .abschnitt__kopf button.verweis { margin-left: auto; }
+
+/* ------------------------------------------------------------
+   Karten und Listen
+   ------------------------------------------------------------ */
+
+.karte {
+  background: var(--flaeche);
+  border: 1px solid var(--linie);
+  border-radius: var(--radius);
+  box-shadow: var(--schatten);
+  padding: 16px;
+}
+.karte + .karte { margin-top: 10px; }
+
+.liste { list-style: none; margin: 0; padding: 0;
+  background: var(--flaeche); border: 1px solid var(--linie);
+  border-radius: var(--radius); box-shadow: var(--schatten); overflow: hidden; }
+.liste li + li { border-top: 1px solid var(--linie); }
+
+.zeile {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 12px 14px; text-align: left;
+  background: none; border: 0; color: inherit; font: inherit; cursor: pointer;
+}
+.zeile:active { background: var(--flaeche-2); }
+.zeile__text { min-width: 0; flex: 1; }
+.zeile__titel { display: block; font-weight: 500; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.zeile__unter { display: block; font-size: 13.5px; color: var(--gedaempft);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.zeile__betrag { font-weight: 600; white-space: nowrap; }
+
+/* Farbpunkt vor Konten und Kategorien. */
+.punkt { flex: none; width: 10px; height: 10px; border-radius: 50%;
+  background: var(--gedaempft); }
+.punkt--gross { width: 30px; height: 30px; border-radius: 9px; }
+
+/* ------------------------------------------------------------
+   Bedienelemente
+   ------------------------------------------------------------ */
+
+.knopf {
+  font: inherit; font-weight: 500; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 44px; padding: 10px 18px; border-radius: 999px;
+  border: 1px solid var(--linie); background: var(--flaeche); color: var(--tinte);
+}
+.knopf:disabled { opacity: .55; cursor: default; }
+.knopf--haupt { background: var(--petrol); border-color: var(--petrol); color: #fff; }
+.knopf--breit { width: 100%; }
+.knopf--still { border-color: transparent; background: transparent; color: var(--petrol); }
+
+button.verweis {
+  font: inherit; font-size: 14px; background: none; border: 0; padding: 0;
+  color: var(--petrol); cursor: pointer;
+}
+
+.feld { display: block; margin-bottom: 14px; }
+.feld > span { display: block; font-size: 13px; font-weight: 500;
+  color: var(--gedaempft); margin-bottom: 5px; }
+
+input[type="text"], input[type="email"], input[type="password"],
+input[type="date"], input[type="number"], select, textarea {
+  font: inherit; width: 100%; min-height: 44px;
+  padding: 10px 12px; border-radius: 9px;
+  border: 1px solid var(--linie); background: var(--flaeche); color: var(--tinte);
+}
+textarea { min-height: 80px; resize: vertical; }
+input:focus, select:focus, textarea:focus, .knopf:focus-visible, .zeile:focus-visible {
+  outline: 2px solid var(--petrol); outline-offset: 1px;
+}
+input[inputmode="decimal"] { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Farbauswahl als Reihe von Punkten. */
+.farbwahl { display: flex; flex-wrap: wrap; gap: 8px; }
+.farbwahl input { position: absolute; opacity: 0; pointer-events: none; }
+.farbwahl label { display: block; width: 32px; height: 32px; border-radius: 50%;
+  cursor: pointer; border: 2px solid transparent; }
+.farbwahl input:checked + label { border-color: var(--tinte);
+  box-shadow: inset 0 0 0 2px var(--flaeche); }
+.farbwahl input:focus-visible + label { outline: 2px solid var(--petrol); outline-offset: 2px; }
+
+/* ------------------------------------------------------------
+   Meldungen
+   ------------------------------------------------------------ */
+
+.meldung { margin: 0 0 14px; padding: 11px 13px; border-radius: 9px; font-size: 15px; }
+.meldung--fehler { background: color-mix(in srgb, var(--soll) 14%, transparent);
+  color: var(--soll); border: 1px solid color-mix(in srgb, var(--soll) 35%, transparent); }
+.meldung--ok { background: color-mix(in srgb, var(--haben) 14%, transparent);
+  color: var(--haben); border: 1px solid color-mix(in srgb, var(--haben) 35%, transparent); }
+.leer { color: var(--gedaempft); font-size: 15px; text-align: center; padding: 22px 12px; }
+
+/* ------------------------------------------------------------
+   Anmeldeseite
+   ------------------------------------------------------------ */
+
+.anmeldeseite { min-height: 100dvh; display: flex; align-items: center;
+  justify-content: center; padding: 24px 16px; }
+.anmeldeseite .karte { width: 100%; max-width: 420px; box-shadow: var(--schatten-2); }
+.karte__kopf { text-align: center; margin-bottom: 18px; }
+.karte__kopf p { margin: 6px 0 0; color: var(--gedaempft); font-size: 15px; }
+
+.reiter { display: flex; gap: 4px; padding: 4px; margin-bottom: 18px;
+  background: var(--flaeche-2); border-radius: 999px; }
+.reiter button { flex: 1; font: inherit; font-weight: 500; cursor: pointer;
+  min-height: 38px; padding: 6px 10px; border: 0; border-radius: 999px;
+  background: none; color: var(--gedaempft); }
+.reiter button[aria-selected="true"] { background: var(--flaeche); color: var(--tinte);
+  box-shadow: var(--schatten); }
+
+/* ------------------------------------------------------------
+   Untere Navigation
+   ------------------------------------------------------------ */
+
+.navleiste {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 20;
+  display: flex; justify-content: center; gap: 2px;
+  padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--flaeche) 94%, transparent);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--linie);
+}
+.navleiste a {
+  flex: 1; max-width: 120px; text-decoration: none; color: var(--gedaempft);
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 6px 4px; border-radius: 10px; font-size: 11.5px;
+}
+.navleiste a[aria-current="page"] { color: var(--petrol); }
+.navleiste svg { width: 22px; height: 22px; fill: none;
+  stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+
+@media (prefers-reduced-motion: reduce) {
+  * { transition: none !important; animation: none !important; }
+}
